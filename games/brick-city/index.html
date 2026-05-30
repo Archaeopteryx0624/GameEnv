@@ -1,0 +1,1380 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BrickCity — Open World</title>
+    <link href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0; padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            font-family: 'Russo One', sans-serif;
+            background: #0a0a0a;
+            overflow: hidden;
+            position: fixed;
+            width: 100%; height: 100%;
+        }
+        #gameCanvas { display: block; width: 100%; height: 100%; }
+
+        /* ── HUD BARS ── */
+        #healthBar, #staminaBar {
+            position: absolute; top: 10px; height: 18px;
+            background: rgba(0,0,0,0.6);
+            border: 2px solid #0ff; border-radius: 4px; overflow: hidden;
+        }
+        #healthBar  { left: 10px; width: 120px; }
+        #staminaBar { left: 10px; top: 33px; width: 120px; }
+        .bar-fill   { height: 100%; transition: width 0.15s; }
+        #healthFill  { background: linear-gradient(90deg,#ff0040,#ff4080); width: 100%; }
+        #staminaFill { background: linear-gradient(90deg,#00ff80,#40ff80); width: 100%; }
+
+        #wantedStars {
+            position: absolute; top: 10px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 22px; color: #ffd700;
+            text-shadow: 0 0 12px rgba(255,215,0,0.8);
+            pointer-events: none;
+        }
+        #money {
+            position: absolute; top: 10px; right: 10px;
+            font-size: 18px; color: #00ff40;
+            pointer-events: none;
+        }
+        #eventLog {
+            position: absolute; top: 58px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 15px; color: #0ff; opacity: 0;
+            transition: opacity 0.3s; text-align: center;
+            white-space: nowrap; pointer-events: none;
+        }
+        #equipped {
+            position: absolute; bottom: 185px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 13px; color: #ff80ff;
+            pointer-events: none;
+        }
+
+        /* ── SPAWN BUTTONS ── */
+        #spawnButtons {
+            position: absolute; top: 55px; left: 50%;
+            transform: translateX(-50%);
+            display: flex; gap: 6px;
+            pointer-events: auto;
+        }
+        .spawn-btn {
+            padding: 6px 10px; font-family: 'Russo One', sans-serif;
+            font-size: 11px; border: 2px solid; border-radius: 5px;
+            cursor: pointer; background: rgba(0,0,0,0.7);
+        }
+        #spawnCar    { border-color:#ff0; color:#ff0; }
+        #spawnNPC    { border-color:#0f0; color:#0f0; }
+        #spawnPolice { border-color:#66f; color:#66f; }
+        #spawnMoney  { border-color:#0f0; color:#0f0; }
+        #spawnGun    { border-color:#888; color:#888; }
+        #spawnHealth { border-color:#f00; color:#f00; }
+        #resetGame   { border-color:#f66; color:#f66; }
+
+        /* ── JOYSTICK ── */
+        #joystickZone {
+            position: absolute; left: 20px; bottom: 20px;
+            width: 140px; height: 140px;
+            pointer-events: auto;
+        }
+        #joystickBase {
+            position: absolute; width: 120px; height: 120px;
+            background: rgba(0,255,255,0.08);
+            border: 3px solid rgba(0,255,255,0.45);
+            border-radius: 50%; top: 10px; left: 10px;
+        }
+        #joystickKnob {
+            position: absolute; width: 48px; height: 48px;
+            background: rgba(0,255,255,0.55);
+            border: 2px solid #0ff; border-radius: 50%;
+            top: 46px; left: 46px;
+            /* no CSS transition — we update every frame for responsiveness */
+        }
+
+        /* ── ACTION BUTTONS ── */
+        #actionButtons {
+            position: absolute; right: 20px; bottom: 20px;
+            width: 190px; height: 190px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 8px;
+            pointer-events: auto;
+        }
+        .action-btn {
+            width: 85px; height: 85px;
+            background: rgba(255,0,128,0.18);
+            border: 3px solid rgba(255,0,128,0.75);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px; cursor: pointer;
+            transition: background 0.08s;
+        }
+        .action-btn:active { background: rgba(255,0,128,0.45); }
+
+        /* ── MINIMAP ── */
+        #minimapWrap {
+            position: absolute; bottom: 20px; right: 220px;
+            width: 110px; height: 110px;
+            border-radius: 50%;
+            border: 2px solid rgba(0,255,255,0.5);
+            overflow: hidden;
+            background: rgba(0,0,0,0.7);
+            pointer-events: none;
+            box-shadow: 0 0 12px rgba(0,255,255,0.3);
+        }
+        #minimapCanvas { display: block; }
+        /* compass hint */
+        #minimapWrap::after {
+            content: 'N';
+            position: absolute; top: 3px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px; color: rgba(0,255,255,0.7);
+            font-family: 'Russo One', sans-serif;
+        }
+
+        /* ── ARRESTED ── */
+        #arrestedOverlay {
+            position: absolute; inset: 0;
+            background: rgba(0,0,50,0.92);
+            display: none; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 100;
+        }
+        #arrestedOverlay h1 {
+            font-size: 52px; color: #00f;
+            text-shadow: 0 0 24px #00f; margin-bottom: 22px;
+        }
+        #restartBtn {
+            padding: 14px 40px; font-family: 'Russo One', sans-serif;
+            font-size: 20px; background: #00f; color: #fff;
+            border: none; border-radius: 8px; cursor: pointer;
+        }
+
+        /* ── CAMERA HINT ── */
+        #camHint {
+            position: absolute; bottom: 175px; left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px; color: rgba(255,255,255,0.35);
+            pointer-events: none; white-space: nowrap;
+            font-family: sans-serif;
+        }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+
+<!-- HUD -->
+<div id="healthBar"><div id="healthFill" class="bar-fill"></div></div>
+<div id="staminaBar"><div id="staminaFill" class="bar-fill"></div></div>
+<div id="wantedStars">☆☆☆☆☆</div>
+<div id="money">💰 $0</div>
+<div id="eventLog">WELCOME TO BRICKCITY</div>
+<div id="equipped">FISTS</div>
+
+<div id="spawnButtons">
+    <button class="spawn-btn" id="spawnCar">+CAR</button>
+    <button class="spawn-btn" id="spawnNPC">+NPC</button>
+    <button class="spawn-btn" id="spawnPolice">+COP</button>
+    <button class="spawn-btn" id="spawnMoney">+$</button>
+    <button class="spawn-btn" id="spawnGun">+GUN</button>
+    <button class="spawn-btn" id="spawnHealth">+HP</button>
+    <button class="spawn-btn" id="resetGame">RESET</button>
+</div>
+
+<div id="joystickZone">
+    <div id="joystickBase"></div>
+    <div id="joystickKnob"></div>
+</div>
+
+<div id="actionButtons">
+    <div class="action-btn" id="btnCar">🚗</div>
+    <div class="action-btn" id="btnShoot">🔫</div>
+    <div class="action-btn" id="btnRun">👟</div>
+    <div class="action-btn" id="btnPunch">👊</div>
+</div>
+
+<!-- Minimap -->
+<div id="minimapWrap">
+    <canvas id="minimapCanvas" width="110" height="110"></canvas>
+</div>
+
+<div id="camHint">SWIPE RIGHT SIDE TO ROTATE CAMERA</div>
+
+<div id="arrestedOverlay">
+    <h1>ARRESTED!</h1>
+    <button id="restartBtn">RESTART</button>
+</div>
+
+<!-- Three.js from GameEnv local libs -->
+<script src="/libs/js/three.min.js"></script>
+
+<script>
+// ================================================================
+//  BRICKCITY — Open World
+//  Merged changes:
+//   1. Ox-style character: proper pivot groups, walk animation, bob
+//   2. Camera-relative joystick movement (THE fix)
+//   3. Minimap (canvas 2D top-down)
+// ================================================================
+
+// ── GAME STATE ───────────────────────────────────────────────
+const GAME = {
+    money: 0, health: 100, stamina: 100,
+    wantedLevel: 0, equipped: 'FISTS',
+    hasGun: false, inCar: false, currentCar: null,
+    isRunning: false, isPunching: false,
+    lastShot: 0, lastPunch: 0,
+    audioContext: null, activeSounds: 0, maxSounds: 3,
+    eventLogTimer: null,
+    frameCount: 0, lastTime: 0,
+    targetFPS: 30, frameInterval: 1000 / 30,
+    cameraAngle: Math.PI,  // start looking from behind player
+    elapsedTime: 0,        // for walk animation
+};
+
+const POOLS = {
+    cars: [], npcs: [], police: [],
+    collectibles: [], bullets: [],
+    carsActive: 0, npcsActive: 0,
+    policeActive: 0, collectiblesActive: 0, bulletsActive: 0,
+};
+
+const LIMITS = {
+    maxCars: 8, maxNPCs: 6, maxPolice: 3,
+    maxCollectibles: 5, maxBullets: 10, worldSize: 200,
+};
+
+const COLORS = {
+    road: 0x1a1a2e, sidewalk: 0x2d2d44,
+    building: [0xff6b6b, 0x4ecdc4, 0xffe66d, 0xa8e6cf, 0xff8b94],
+    player: 0x3b82f6,         // blue shirt (Ox palette)
+    playerPants: 0x1e3a8a,
+    playerSkin: 0xffcd94,
+    playerShoe: 0x111111,
+    car: [0xff0000, 0x00ff00, 0xffff00, 0xff00ff, 0x00ffff],
+    police: 0x0000ff, policeCar: 0x000080,
+    money: 0x00ff00, gun: 0x888888, health: 0xff0040,
+};
+
+// ── THREE.JS GLOBALS ─────────────────────────────────────────
+let scene, camera, renderer;
+let playerMesh, playerParts;   // character mesh + animated part refs
+let playerData;                // physics data
+let buildings = [], roads = [], highway;
+let ambientLight, dirLight;
+
+const input = {
+    joystick: { x: 0, y: 0, active: false, originX: 0, originY: 0 },
+    buttons:  { car: false, shoot: false, run: false, punch: false },
+    camera:   { active: false, lastX: 0 },
+};
+
+// ── AUDIO ────────────────────────────────────────────────────
+function initAudio() {
+    if (!GAME.audioContext) {
+        GAME.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+function playSound(type) {
+    if (!GAME.audioContext || GAME.activeSounds >= GAME.maxSounds) return;
+    GAME.activeSounds++;
+    const osc  = GAME.audioContext.createOscillator();
+    const gain = GAME.audioContext.createGain();
+    osc.connect(gain);
+    gain.connect(GAME.audioContext.destination);
+    const now = GAME.audioContext.currentTime;
+    switch (type) {
+        case 'honk':
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(250, now + 0.1);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc.start(now); osc.stop(now + 0.3); break;
+        case 'shoot':
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(800, now);
+            osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            osc.start(now); osc.stop(now + 0.15); break;
+        case 'pickup':
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.setValueAtTime(800, now + 0.1);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc.start(now); osc.stop(now + 0.3); break;
+        case 'punch':
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(150, now);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+            osc.start(now); osc.stop(now + 0.1); break;
+    }
+    setTimeout(() => GAME.activeSounds--, 400);
+}
+
+// ── HUD ──────────────────────────────────────────────────────
+function showEvent(text) {
+    const log = document.getElementById('eventLog');
+    log.textContent = text;
+    log.style.opacity = '1';
+    if (GAME.eventLogTimer) clearTimeout(GAME.eventLogTimer);
+    GAME.eventLogTimer = setTimeout(() => { log.style.opacity = '0'; }, 2000);
+}
+function updateHUD() {
+    document.getElementById('healthFill').style.width  = GAME.health + '%';
+    document.getElementById('staminaFill').style.width = GAME.stamina + '%';
+    let stars = '';
+    for (let i = 0; i < 5; i++) stars += i < GAME.wantedLevel ? '★' : '☆';
+    document.getElementById('wantedStars').textContent = stars;
+    document.getElementById('money').textContent = '💰 $' + GAME.money;
+    document.getElementById('equipped').textContent = GAME.equipped;
+}
+
+// ── CHARACTER (Ox-style) ──────────────────────────────────────
+// Returns { mesh: Group, parts: { torso, head, leftArm, rightArm, leftLeg, rightLeg } }
+function createOxCharacter(shirtColor, pantsColor, skinColor, shoeColor) {
+    const group = new THREE.Group();
+
+    const mat = (c, rough=0.7) => new THREE.MeshStandardMaterial({ color: c, roughness: rough });
+    const skinMat  = mat(skinColor,  0.5);
+    const shirtMat = mat(shirtColor, 0.7);
+    const pantsMat = mat(pantsColor, 0.8);
+    const shoeMat  = mat(shoeColor,  0.9);
+
+    // ── TORSO ──────────────────────────────────────────
+    const torsoGeo = new THREE.BoxGeometry(0.6, 0.7, 0.3);
+    const torso    = new THREE.Mesh(torsoGeo, shirtMat);
+    torso.position.y = 1.35;
+    torso.castShadow = true;
+    group.add(torso);
+
+    // ── HEAD ───────────────────────────────────────────
+    const headGeo = new THREE.BoxGeometry(0.35, 0.35, 0.35);
+    const head    = new THREE.Mesh(headGeo, skinMat);
+    head.position.y = 0.55;   // relative to torso
+    head.castShadow = true;
+    torso.add(head);
+
+    // ── ARMS (pivot groups so they swing from shoulder) ─
+    const armGeo = new THREE.BoxGeometry(0.18, 0.55, 0.18);
+
+    const leftArmGroup = new THREE.Group();
+    leftArmGroup.position.set(-0.4, 0.25, 0);  // shoulder position relative to torso
+    const leftArm = new THREE.Mesh(armGeo, shirtMat);
+    leftArm.position.y = -0.28;
+    leftArm.castShadow = true;
+    leftArmGroup.add(leftArm);
+    torso.add(leftArmGroup);
+
+    const rightArmGroup = new THREE.Group();
+    rightArmGroup.position.set(0.4, 0.25, 0);
+    const rightArm = new THREE.Mesh(armGeo, shirtMat);
+    rightArm.position.y = -0.28;
+    rightArm.castShadow = true;
+    rightArmGroup.add(rightArm);
+    torso.add(rightArmGroup);
+
+    // ── LEGS (pivot groups from hip) ───────────────────
+    const legGeo = new THREE.BoxGeometry(0.22, 0.9, 0.25);
+
+    const leftLegGroup = new THREE.Group();
+    leftLegGroup.position.set(-0.15, -0.35, 0);  // hip relative to torso
+    const leftLeg = new THREE.Mesh(legGeo, pantsMat);
+    leftLeg.position.y = -0.45;
+    leftLeg.castShadow = true;
+    leftLegGroup.add(leftLeg);
+
+    // shoe
+    const shoeGeo = new THREE.BoxGeometry(0.24, 0.12, 0.32);
+    const lShoe = new THREE.Mesh(shoeGeo, shoeMat);
+    lShoe.position.set(0, -0.96, 0.04);
+    leftLegGroup.add(lShoe);
+
+    torso.add(leftLegGroup);
+
+    const rightLegGroup = new THREE.Group();
+    rightLegGroup.position.set(0.15, -0.35, 0);
+    const rightLeg = new THREE.Mesh(legGeo, pantsMat);
+    rightLeg.position.y = -0.45;
+    rightLeg.castShadow = true;
+    rightLegGroup.add(rightLeg);
+
+    const rShoe = new THREE.Mesh(shoeGeo, shoeMat);
+    rShoe.position.set(0, -0.96, 0.04);
+    rightLegGroup.add(rShoe);
+
+    torso.add(rightLegGroup);
+
+    return {
+        mesh: group,
+        parts: {
+            torso,
+            head,
+            leftArm:  leftArmGroup,
+            rightArm: rightArmGroup,
+            leftLeg:  leftLegGroup,
+            rightLeg: rightLegGroup,
+        }
+    };
+}
+
+// Animate walk cycle — call each frame with elapsed time & isMoving flag
+function animateCharacter(parts, t, isMoving, baseTorsoY) {
+    if (isMoving) {
+        const walkSpeed = 10;
+        const swing = Math.sin(t * walkSpeed) * 0.5;
+        parts.leftLeg.rotation.x  =  swing;
+        parts.rightLeg.rotation.x = -swing;
+        parts.leftArm.rotation.x  = -swing;
+        parts.rightArm.rotation.x =  swing;
+        // Vertical bob
+        parts.torso.position.y = baseTorsoY + Math.abs(Math.sin(t * walkSpeed * 2)) * 0.05;
+    } else {
+        // Lerp back to rest
+        const lerp = (a, b, t) => a + (b - a) * t;
+        const f = 0.12;
+        parts.leftLeg.rotation.x  = lerp(parts.leftLeg.rotation.x,  0, f);
+        parts.rightLeg.rotation.x = lerp(parts.rightLeg.rotation.x, 0, f);
+        parts.leftArm.rotation.x  = lerp(parts.leftArm.rotation.x,  0, f);
+        parts.rightArm.rotation.x = lerp(parts.rightArm.rotation.x, 0, f);
+        parts.torso.position.y    = lerp(parts.torso.position.y, baseTorsoY, f);
+    }
+}
+
+// ── NPC MESH (also Ox-style, smaller) ───────────────────────
+function createNPCMesh(isPolice) {
+    const shirtC = isPolice ? 0x0000cc : [0xff8800, 0xcc0088, 0x00cc44][Math.floor(Math.random()*3)];
+    const npc = createOxCharacter(shirtC, 0x333333, 0xffccaa, 0x222222);
+    npc.mesh.scale.set(0.85, 0.85, 0.85);
+    return npc.mesh;
+}
+
+// ── WORLD ────────────────────────────────────────────────────
+function createWorld() {
+    const groundGeo = new THREE.PlaneGeometry(LIMITS.worldSize * 2, LIMITS.worldSize * 2);
+    const groundMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.1;
+    scene.add(ground);
+
+    const blockSize = 30, roadWidth = 12, citySize = 3;
+
+    for (let x = -citySize; x <= citySize; x++) {
+        for (let z = -citySize; z <= citySize; z++) {
+            const roadMat = new THREE.MeshLambertMaterial({ color: COLORS.road });
+
+            const roadH = new THREE.Mesh(new THREE.PlaneGeometry(roadWidth, blockSize), roadMat);
+            roadH.rotation.x = -Math.PI / 2;
+            roadH.position.set(x * blockSize, 0, z * blockSize);
+            scene.add(roadH); roads.push(roadH);
+
+            const roadV = new THREE.Mesh(new THREE.PlaneGeometry(roadWidth, blockSize), roadMat);
+            roadV.rotation.x = -Math.PI / 2;
+            roadV.rotation.z = Math.PI / 2;
+            roadV.position.set(x * blockSize, 0, z * blockSize);
+            scene.add(roadV); roads.push(roadV);
+
+            if (Math.abs(x) < citySize && Math.abs(z) < citySize) {
+                const h = 10 + Math.random() * 30;
+                const geo = new THREE.BoxGeometry(12, h, 12);
+                const col = COLORS.building[Math.floor(Math.random() * COLORS.building.length)];
+                const mat = new THREE.MeshLambertMaterial({ color: col });
+                const b = new THREE.Mesh(geo, mat);
+                b.position.set(x * blockSize + blockSize / 2, h / 2, z * blockSize + blockSize / 2);
+                scene.add(b);
+                buildings.push({ mesh: b, width: 12, depth: 12 });
+            }
+        }
+    }
+
+    // Highway
+    const hwGeo = new THREE.PlaneGeometry(LIMITS.worldSize * 2, 20);
+    const hwMat = new THREE.MeshLambertMaterial({ color: 0x0a0a1a });
+    highway = new THREE.Mesh(hwGeo, hwMat);
+    highway.rotation.x = -Math.PI / 2;
+    highway.position.set(0, 0.05, -LIMITS.worldSize / 2 + 30);
+    scene.add(highway);
+
+    for (let i = -LIMITS.worldSize; i < LIMITS.worldSize; i += 20) {
+        const line = new THREE.Mesh(
+            new THREE.BoxGeometry(10, 0.1, 1),
+            new THREE.MeshLambertMaterial({ color: 0xffff00 })
+        );
+        line.position.set(i, 0.1, -LIMITS.worldSize / 2 + 30);
+        scene.add(line);
+    }
+}
+
+// ── PLAYER ───────────────────────────────────────────────────
+function createPlayer() {
+    playerData = {
+        position: new THREE.Vector3(0, 0, 0),
+        velocity: new THREE.Vector3(0, 0, 0),
+        rotation: 0,
+        speed: 0.15,
+        runSpeed: 0.28,
+        radius: 1,
+        isMoving: false,
+    };
+
+    const char = createOxCharacter(COLORS.player, COLORS.playerPants, COLORS.playerSkin, COLORS.playerShoe);
+    playerMesh  = char.mesh;
+    playerParts = char.parts;
+    scene.add(playerMesh);
+}
+
+// ── VEHICLE MESHES ───────────────────────────────────────────
+function createCarMesh(isPolice) {
+    const group = new THREE.Group();
+    const col = isPolice ? COLORS.policeCar : COLORS.car[Math.floor(Math.random() * COLORS.car.length)];
+
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(2.2, 1, 4.5),
+        new THREE.MeshLambertMaterial({ color: col })
+    );
+    body.position.y = 0.8; group.add(body);
+
+    const top = new THREE.Mesh(
+        new THREE.BoxGeometry(1.8, 0.8, 2.5),
+        new THREE.MeshLambertMaterial({ color: isPolice ? 0xffffff : 0x333333 })
+    );
+    top.position.y = 1.7; group.add(top);
+
+    const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 8);
+    const wheelMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+    [[-1,0.4,1.5],[1,0.4,1.5],[-1,0.4,-1.5],[1,0.4,-1.5]].forEach(([x,y,z]) => {
+        const w = new THREE.Mesh(wheelGeo, wheelMat);
+        w.rotation.z = Math.PI / 2;
+        w.position.set(x, y, z);
+        group.add(w);
+    });
+
+    if (isPolice) {
+        // Light bar
+        const bar = new THREE.Mesh(
+            new THREE.BoxGeometry(1.4, 0.18, 0.4),
+            new THREE.MeshLambertMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.6 })
+        );
+        bar.position.y = 2.15; group.add(bar);
+    }
+
+    return group;
+}
+
+function createPoliceMesh() {
+    const group = new THREE.Group();
+    group.add(createCarMesh(true));
+    return group;
+}
+
+function createCollectibleMesh(type) {
+    const colors = { money: COLORS.money, gun: COLORS.gun, health: COLORS.health };
+    const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8, 0.8, 0.8),
+        new THREE.MeshLambertMaterial({ color: colors[type] || 0xffffff })
+    );
+    return mesh;
+}
+
+// ── OBJECT POOLS ─────────────────────────────────────────────
+function initPools() {
+    for (let i = 0; i < LIMITS.maxCars; i++) {
+        const m = createCarMesh(false);
+        m.visible = false;
+        POOLS.cars.push({ mesh: m, active: false, data: {} });
+        scene.add(m);
+    }
+    for (let i = 0; i < LIMITS.maxNPCs; i++) {
+        const m = createNPCMesh(false);
+        m.visible = false;
+        POOLS.npcs.push({ mesh: m, active: false, data: {}, parts: null });
+        scene.add(m);
+    }
+    for (let i = 0; i < LIMITS.maxPolice; i++) {
+        const m = createPoliceMesh();
+        m.visible = false;
+        POOLS.police.push({ mesh: m, active: false, data: {} });
+        scene.add(m);
+    }
+    for (let i = 0; i < LIMITS.maxCollectibles; i++) {
+        const m = createCollectibleMesh('money');
+        m.visible = false;
+        POOLS.collectibles.push({ mesh: m, active: false, type: 'money', data: {} });
+        scene.add(m);
+    }
+    const bGeo = new THREE.BoxGeometry(0.2, 0.2, 0.5);
+    const bMat = new THREE.MeshLambertMaterial({ color: 0xffff00 });
+    for (let i = 0; i < LIMITS.maxBullets; i++) {
+        const m = new THREE.Mesh(bGeo, bMat);
+        m.visible = false;
+        POOLS.bullets.push({ mesh: m, active: false, velocity: new THREE.Vector3() });
+        scene.add(m);
+    }
+}
+
+// ── SPAWN FUNCTIONS ──────────────────────────────────────────
+function spawnCar() {
+    if (POOLS.carsActive >= LIMITS.maxCars) { showEvent('MAX CARS!'); return; }
+    for (const car of POOLS.cars) {
+        if (!car.active) {
+            car.active = true;
+            car.mesh.visible = true;
+            const onHighway = Math.random() > 0.7;
+            car.data = {
+                position: new THREE.Vector3(
+                    (Math.random() - 0.5) * 100, 0,
+                    onHighway ? -LIMITS.worldSize / 2 + 30 : (Math.random() - 0.5) * 100
+                ),
+                velocity: onHighway
+                    ? new THREE.Vector3(0.3 + Math.random() * 0.2, 0, 0)
+                    : new THREE.Vector3(0, 0, 0.1 + Math.random() * 0.1),
+                onHighway,
+                honkTimer: Math.random() * 100,
+            };
+            car.mesh.position.copy(car.data.position);
+            POOLS.carsActive++;
+            showEvent('🚗 CAR SPAWNED!');
+            return;
+        }
+    }
+}
+
+function spawnNPC() {
+    if (POOLS.npcsActive >= LIMITS.maxNPCs) { showEvent('MAX NPCS!'); return; }
+    for (const npc of POOLS.npcs) {
+        if (!npc.active) {
+            npc.active = true;
+            npc.mesh.visible = true;
+            npc.data = {
+                position: new THREE.Vector3(
+                    (Math.random() - 0.5) * 80, 0, (Math.random() - 0.5) * 80
+                ),
+                velocity: new THREE.Vector3(0, 0, 0),
+                wanderTimer: 0, fleeing: false,
+            };
+            npc.mesh.position.copy(npc.data.position);
+            POOLS.npcsActive++;
+            showEvent('👤 NPC SPAWNED!');
+            return;
+        }
+    }
+}
+
+function spawnPolice() {
+    if (POOLS.policeActive >= LIMITS.maxPolice) { showEvent('MAX COPS!'); return; }
+    for (const p of POOLS.police) {
+        if (!p.active) {
+            p.active = true;
+            p.mesh.visible = true;
+            p.data = {
+                position: new THREE.Vector3(
+                    playerData.position.x + (Math.random() - 0.5) * 50,
+                    0,
+                    playerData.position.z + (Math.random() - 0.5) * 50
+                ),
+                velocity: new THREE.Vector3(0, 0, 0),
+                chasing: false,
+            };
+            p.mesh.position.copy(p.data.position);
+            POOLS.policeActive++;
+            showEvent('👮 COP SPAWNED!');
+            return;
+        }
+    }
+}
+
+function spawnCollectibleType(type) {
+    if (POOLS.collectiblesActive >= LIMITS.maxCollectibles) { showEvent('MAX ITEMS!'); return; }
+    const pos = new THREE.Vector3(
+        playerData.position.x + (Math.random() - 0.5) * 20,
+        0.5,
+        playerData.position.z + (Math.random() - 0.5) * 20
+    );
+    for (const c of POOLS.collectibles) {
+        if (!c.active) {
+            c.active = true; c.type = type;
+            c.mesh.visible = true;
+            c.mesh.material.color.setHex(
+                type === 'money' ? COLORS.money : type === 'gun' ? COLORS.gun : COLORS.health
+            );
+            c.data = { position: pos.clone() };
+            c.mesh.position.copy(pos);
+            POOLS.collectiblesActive++;
+            const icon = { money:'💰', gun:'🔫', health:'❤️' }[type] || '📦';
+            showEvent(icon + ' SPAWNED!');
+            return;
+        }
+    }
+}
+
+// ── COLLISION ────────────────────────────────────────────────
+function checkCollision(pos, radius) {
+    for (const b of buildings) {
+        if (
+            Math.abs(pos.x - b.mesh.position.x) < (b.width / 2 + radius) &&
+            Math.abs(pos.z - b.mesh.position.z) < (b.depth / 2 + radius)
+        ) return true;
+    }
+    return Math.abs(pos.x) > LIMITS.worldSize || Math.abs(pos.z) > LIMITS.worldSize;
+}
+
+// ── ACTIONS ──────────────────────────────────────────────────
+function shoot() {
+    if (!GAME.hasGun || GAME.equipped !== 'GUN') return;
+    const now = Date.now();
+    if (now - GAME.lastShot < 300) return;
+    GAME.lastShot = now;
+    playSound('shoot');
+    for (const b of POOLS.bullets) {
+        if (!b.active) {
+            b.active = true; b.mesh.visible = true;
+            b.mesh.position.copy(playerData.position);
+            b.mesh.position.y = 1.5;
+            const a = playerData.rotation;
+            b.velocity.set(Math.sin(a) * 0.8, 0, Math.cos(a) * 0.8);
+            b.mesh.rotation.y = a;
+            if (GAME.wantedLevel < 5) { GAME.wantedLevel++; updateHUD(); }
+            return;
+        }
+    }
+}
+
+function punch() {
+    const now = Date.now();
+    if (now - GAME.lastPunch < 500) return;
+    GAME.lastPunch = now;
+    GAME.isPunching = true;
+    playSound('punch');
+    for (const npc of POOLS.npcs) {
+        if (npc.active && playerData.position.distanceTo(npc.data.position) < 3) {
+            npc.data.fleeing = true;
+            npc.data.velocity.x = (npc.data.position.x - playerData.position.x) * 0.1;
+            npc.data.velocity.z = (npc.data.position.z - playerData.position.z) * 0.1;
+            showEvent('👊 HIT!');
+            if (GAME.wantedLevel < 2) { GAME.wantedLevel++; updateHUD(); }
+        }
+    }
+    setTimeout(() => GAME.isPunching = false, 300);
+}
+
+function toggleCar() {
+    if (GAME.inCar) {
+        GAME.inCar = false; GAME.currentCar = null;
+        playerMesh.visible = true;
+        showEvent('🚗 EXITED');
+    } else {
+        let nearest = null, nearDist = 5;
+        for (const car of POOLS.cars) {
+            if (car.active) {
+                const d = playerData.position.distanceTo(car.data.position);
+                if (d < nearDist) { nearest = car; nearDist = d; }
+            }
+        }
+        if (nearest) {
+            GAME.inCar = true; GAME.currentCar = nearest;
+            playerMesh.visible = false;
+            showEvent('🚗 ENTERED');
+        } else {
+            showEvent('NO CAR NEARBY');
+        }
+    }
+    updateHUD();
+}
+
+function resetGame() {
+    playerData.position.set(0, 0, 0);
+    playerData.velocity.set(0, 0, 0);
+    GAME.health = 100; GAME.stamina = 100; GAME.money = 0;
+    GAME.wantedLevel = 0; GAME.equipped = 'FISTS';
+    GAME.hasGun = false; GAME.inCar = false; GAME.currentCar = null;
+    playerMesh.visible = true;
+    POOLS.cars.forEach(c => { c.active = false; c.mesh.visible = false; });
+    POOLS.npcs.forEach(n => { n.active = false; n.mesh.visible = false; });
+    POOLS.police.forEach(p => { p.active = false; p.mesh.visible = false; });
+    POOLS.collectibles.forEach(c => { c.active = false; c.mesh.visible = false; });
+    POOLS.bullets.forEach(b => { b.active = false; b.mesh.visible = false; });
+    POOLS.carsActive = POOLS.npcsActive = POOLS.policeActive = POOLS.collectiblesActive = POOLS.bulletsActive = 0;
+    document.getElementById('arrestedOverlay').style.display = 'none';
+    spawnCar(); spawnNPC();
+    updateHUD(); showEvent('RESET!');
+}
+
+function getArrested() {
+    document.getElementById('arrestedOverlay').style.display = 'flex';
+}
+
+// ── CONTROLS SETUP ───────────────────────────────────────────
+function setupControls() {
+    const joystickZone = document.getElementById('joystickZone');
+    const joystickKnob = document.getElementById('joystickKnob');
+
+    // ── JOYSTICK (multitouch aware) ──────────────────
+    let jsTouch = null;  // track which touch ID owns the joystick
+
+    joystickZone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (jsTouch !== null) return;  // already tracking
+        const touch = e.changedTouches[0];
+        jsTouch = touch.identifier;
+        const rect = joystickZone.getBoundingClientRect();
+        input.joystick.originX = rect.left + rect.width / 2;
+        input.joystick.originY = rect.top + rect.height / 2;
+        input.joystick.active = true;
+        updateJoystick(touch.clientX, touch.clientY);
+        initAudio();
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+        for (const touch of e.changedTouches) {
+            if (touch.identifier === jsTouch) {
+                e.preventDefault();
+                updateJoystick(touch.clientX, touch.clientY);
+                return;
+            }
+        }
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+        for (const touch of e.changedTouches) {
+            if (touch.identifier === jsTouch) {
+                jsTouch = null;
+                input.joystick.active = false;
+                input.joystick.x = 0;
+                input.joystick.y = 0;
+                joystickKnob.style.transform = 'translate(0px,0px)';
+            }
+        }
+    });
+
+    function updateJoystick(x, y) {
+        const maxDist = 35;
+        let dx = x - input.joystick.originX;
+        let dy = y - input.joystick.originY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
+        joystickKnob.style.transform = `translate(${dx}px,${dy}px)`;
+        input.joystick.x = dx / maxDist;
+        input.joystick.y = dy / maxDist;
+    }
+
+    // ── CAMERA ROTATION (right side of screen, separate touch) ──
+    let camTouch = null;
+
+    document.addEventListener('touchstart', (e) => {
+        for (const touch of e.changedTouches) {
+            if (touch.identifier === jsTouch) continue;
+            const x = touch.clientX;
+            const onControls =
+                e.target.closest('#joystickZone') ||
+                e.target.closest('#actionButtons') ||
+                e.target.closest('#spawnButtons');
+            if (!onControls && x > window.innerWidth * 0.25) {
+                camTouch = touch.identifier;
+                input.camera.lastX = x;
+                break;
+            }
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+        for (const touch of e.changedTouches) {
+            if (touch.identifier === camTouch) {
+                const dx = touch.clientX - input.camera.lastX;
+                input.camera.lastX = touch.clientX;
+                GAME.cameraAngle -= dx * 0.012;
+                break;
+            }
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+        for (const touch of e.changedTouches) {
+            if (touch.identifier === camTouch) { camTouch = null; break; }
+        }
+    }, { passive: true });
+
+    // ── ACTION BUTTONS ──────────────────────────────
+    document.getElementById('btnCar').addEventListener('touchstart',   e => { e.preventDefault(); toggleCar(); initAudio(); }, { passive: false });
+    document.getElementById('btnShoot').addEventListener('touchstart', e => { e.preventDefault(); shoot();     initAudio(); }, { passive: false });
+    document.getElementById('btnPunch').addEventListener('touchstart', e => { e.preventDefault(); punch();     initAudio(); }, { passive: false });
+    document.getElementById('btnRun').addEventListener('touchstart',   e => { e.preventDefault(); GAME.isRunning = true;  initAudio(); }, { passive: false });
+    document.getElementById('btnRun').addEventListener('touchend',     e => { e.preventDefault(); GAME.isRunning = false; }, { passive: false });
+
+    // Also mouse for desktop testing
+    document.getElementById('btnCar').addEventListener('click',   toggleCar);
+    document.getElementById('btnShoot').addEventListener('click', shoot);
+    document.getElementById('btnPunch').addEventListener('click', punch);
+
+    // ── KEYBOARD (desktop) ──────────────────────────
+    const keys = {};
+    window.addEventListener('keydown', e => { keys[e.code] = true; });
+    window.addEventListener('keyup',   e => { keys[e.code] = false; });
+
+    // poll keyboard each frame via closure
+    window._keys = keys;
+
+    // ── SPAWN BUTTONS ───────────────────────────────
+    document.getElementById('spawnCar').addEventListener('click',    spawnCar);
+    document.getElementById('spawnNPC').addEventListener('click',    spawnNPC);
+    document.getElementById('spawnPolice').addEventListener('click', spawnPolice);
+    document.getElementById('spawnMoney').addEventListener('click',  () => spawnCollectibleType('money'));
+    document.getElementById('spawnGun').addEventListener('click',    () => spawnCollectibleType('gun'));
+    document.getElementById('spawnHealth').addEventListener('click', () => spawnCollectibleType('health'));
+    document.getElementById('resetGame').addEventListener('click',   resetGame);
+    document.getElementById('restartBtn').addEventListener('click',  resetGame);
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+}
+
+// ── MINIMAP ───────────────────────────────────────────────────
+const mmCanvas = document.getElementById('minimapCanvas');
+const mmCtx    = mmCanvas.getContext('2d');
+const MM_SIZE  = 110;
+const MM_SCALE = 0.45; // world units → minimap pixels
+
+function renderMinimap() {
+    mmCtx.clearRect(0, 0, MM_SIZE, MM_SIZE);
+
+    // Circular clip
+    mmCtx.save();
+    mmCtx.beginPath();
+    mmCtx.arc(MM_SIZE / 2, MM_SIZE / 2, MM_SIZE / 2, 0, Math.PI * 2);
+    mmCtx.clip();
+
+    // Background
+    mmCtx.fillStyle = 'rgba(0,0,0,0.85)';
+    mmCtx.fillRect(0, 0, MM_SIZE, MM_SIZE);
+
+    const px = playerData.position.x;
+    const pz = playerData.position.z;
+
+    // Helper: world coords → minimap pixel (centred on player)
+    const toMM = (wx, wz) => ({
+        x: MM_SIZE / 2 + (wx - px) * MM_SCALE,
+        y: MM_SIZE / 2 + (wz - pz) * MM_SCALE,
+    });
+
+    // Buildings (grey blocks)
+    mmCtx.fillStyle = '#445';
+    for (const b of buildings) {
+        const m = toMM(b.mesh.position.x, b.mesh.position.z);
+        const s = b.width * MM_SCALE;
+        mmCtx.fillRect(m.x - s / 2, m.y - s / 2, s, s);
+    }
+
+    // Roads (faint dark lines — skip, just show buildings)
+
+    // Cars (yellow)
+    for (const car of POOLS.cars) {
+        if (!car.active) continue;
+        const m = toMM(car.data.position.x, car.data.position.z);
+        mmCtx.fillStyle = '#ff0';
+        mmCtx.fillRect(m.x - 2, m.y - 3, 4, 6);
+    }
+
+    // NPCs (green dots)
+    for (const npc of POOLS.npcs) {
+        if (!npc.active) continue;
+        const m = toMM(npc.data.position.x, npc.data.position.z);
+        mmCtx.fillStyle = '#0f0';
+        mmCtx.beginPath();
+        mmCtx.arc(m.x, m.y, 2, 0, Math.PI * 2);
+        mmCtx.fill();
+    }
+
+    // Police (blue)
+    for (const p of POOLS.police) {
+        if (!p.active) continue;
+        const m = toMM(p.data.position.x, p.data.position.z);
+        mmCtx.fillStyle = '#44f';
+        mmCtx.beginPath();
+        mmCtx.arc(m.x, m.y, 2.5, 0, Math.PI * 2);
+        mmCtx.fill();
+    }
+
+    // Collectibles
+    for (const c of POOLS.collectibles) {
+        if (!c.active) continue;
+        const m = toMM(c.data.position.x, c.data.position.z);
+        mmCtx.fillStyle = c.type === 'money' ? '#0f0' : c.type === 'gun' ? '#888' : '#f04';
+        mmCtx.fillRect(m.x - 1.5, m.y - 1.5, 3, 3);
+    }
+
+    // Player — rotating triangle arrow
+    mmCtx.save();
+    mmCtx.translate(MM_SIZE / 2, MM_SIZE / 2);
+    // rotate arrow to match player facing + camera angle offset
+    mmCtx.rotate(-playerData.rotation);
+    mmCtx.fillStyle = '#0ff';
+    mmCtx.beginPath();
+    mmCtx.moveTo(0, -6);
+    mmCtx.lineTo(-4, 4);
+    mmCtx.lineTo(4, 4);
+    mmCtx.closePath();
+    mmCtx.fill();
+    mmCtx.restore();
+
+    // Camera direction indicator (thin line from centre)
+    mmCtx.save();
+    mmCtx.translate(MM_SIZE / 2, MM_SIZE / 2);
+    // camera looks opposite to cameraAngle offset
+    const camDir = -GAME.cameraAngle + Math.PI;
+    mmCtx.strokeStyle = 'rgba(0,255,255,0.3)';
+    mmCtx.lineWidth = 1;
+    mmCtx.beginPath();
+    mmCtx.moveTo(0, 0);
+    mmCtx.lineTo(Math.sin(camDir) * 10, -Math.cos(camDir) * 10);
+    mmCtx.stroke();
+    mmCtx.restore();
+
+    mmCtx.restore(); // remove clip
+}
+
+// ── UPDATE ───────────────────────────────────────────────────
+function update(dt) {
+    if (GAME.health <= 0) { getArrested(); return; }
+
+    GAME.elapsedTime += dt;
+
+    // ── KEYBOARD input (desktop) ──────────────────────────
+    const k = window._keys || {};
+    if (!input.joystick.active) {
+        // Map WASD/arrows to virtual joystick
+        let kx = 0, ky = 0;
+        if (k['KeyA'] || k['ArrowLeft'])  kx = -1;
+        if (k['KeyD'] || k['ArrowRight']) kx =  1;
+        if (k['KeyW'] || k['ArrowUp'])    ky = -1;
+        if (k['KeyS'] || k['ArrowDown'])  ky =  1;
+        if (k['ShiftLeft']) GAME.isRunning = true; else GAME.isRunning = false;
+        if (kx !== 0 || ky !== 0) {
+            input.joystick.x = kx;
+            input.joystick.y = ky;
+            input.joystick.active = true;
+            // we'll clear it at end of this block
+        }
+        // rotate camera with Q/E
+        if (k['KeyQ']) GAME.cameraAngle += 0.04;
+        if (k['KeyE']) GAME.cameraAngle -= 0.04;
+    }
+
+    let speed = GAME.isRunning && GAME.stamina > 0 ? playerData.runSpeed : playerData.speed;
+    if (GAME.inCar && GAME.currentCar) speed = 0.4;
+
+    if (input.joystick.active) {
+        // ════════════════════════════════════════════════════
+        //  THE FIX: rotate joystick input by cameraAngle so
+        //  "up on stick" always means camera-forward, not world-Z.
+        //
+        //  raw stick: (jx, jy) where jy<0 = up = intended forward
+        //  camera forward in world XZ = (sin(camAngle), cos(camAngle))
+        //
+        //  We build a 2D rotation matrix from cameraAngle and
+        //  apply it to (jx, jy). The result is (worldX, worldZ).
+        // ════════════════════════════════════════════════════
+        const jx = input.joystick.x;
+        const jy = input.joystick.y;   // screen Y: up = -1
+
+        const sin = Math.sin(GAME.cameraAngle);
+        const cos = Math.cos(GAME.cameraAngle);
+
+        // rotate joystick vector into world space
+        // jy is NOT negated here — inverted Y means pushing stick UP = move backward
+        const worldX =  jx * cos + jy * sin;
+        const worldZ =  jx * sin - jy * cos;
+
+        if (GAME.inCar && GAME.currentCar) {
+            const car = GAME.currentCar;
+            const accel = 0.01;
+            car.data.velocity.x += worldX * accel;
+            car.data.velocity.z += worldZ * accel;
+
+            const maxSpd = car.data.onHighway ? 0.8 : 0.4;
+            const vel = Math.sqrt(car.data.velocity.x ** 2 + car.data.velocity.z ** 2);
+            if (vel > maxSpd) {
+                car.data.velocity.x = (car.data.velocity.x / vel) * maxSpd;
+                car.data.velocity.z = (car.data.velocity.z / vel) * maxSpd;
+            }
+            if (vel > 0.01) {
+                car.mesh.rotation.y = Math.atan2(car.data.velocity.x, car.data.velocity.z);
+            }
+        } else {
+            playerData.velocity.x = worldX * speed;
+            playerData.velocity.z = worldZ * speed;
+            playerData.rotation = Math.atan2(worldX, worldZ);
+            playerData.isMoving = true;
+
+            if (GAME.isRunning && GAME.stamina > 0) GAME.stamina -= 0.5;
+        }
+    } else {
+        // Decelerate
+        if (GAME.inCar && GAME.currentCar) {
+            GAME.currentCar.data.velocity.multiplyScalar(0.95);
+        } else {
+            playerData.velocity.set(0, 0, 0);
+            playerData.isMoving = false;
+        }
+    }
+
+    // Clear keyboard-injected joystick
+    if (!input.joystick.active && (window._keys || {})['KeyW'] === undefined) {
+        playerData.isMoving = false;
+    }
+
+    if (!GAME.isRunning && GAME.stamina < 100) GAME.stamina += 0.2;
+
+    // ── PLAYER POSITION ──────────────────────────────────
+    if (GAME.inCar && GAME.currentCar) {
+        const car = GAME.currentCar;
+        const newPos = car.data.position.clone().add(car.data.velocity);
+        if (!checkCollision(newPos, 1.5)) {
+            car.data.position.copy(newPos);
+            car.mesh.position.copy(car.data.position);
+            playerData.position.copy(car.data.position);
+        } else {
+            car.data.velocity.multiplyScalar(-0.5);
+            playSound('honk');
+            showEvent('📣 HONK!');
+        }
+    } else {
+        const newPos = playerData.position.clone().add(playerData.velocity);
+        if (!checkCollision(newPos, playerData.radius)) {
+            playerData.position.copy(newPos);
+        }
+        playerMesh.position.copy(playerData.position);
+        playerMesh.rotation.y = playerData.rotation;
+
+        // Animate walk cycle (Ox-style)
+        animateCharacter(playerParts, GAME.elapsedTime, playerData.isMoving, 1.35);
+    }
+
+    // ── CAMERA FOLLOW ────────────────────────────────────
+    const camDist   = 12;
+    const camHeight = 8;
+    camera.position.x = playerData.position.x + Math.sin(GAME.cameraAngle) * camDist;
+    camera.position.z = playerData.position.z + Math.cos(GAME.cameraAngle) * camDist;
+    camera.position.y = camHeight;
+    camera.lookAt(
+        playerData.position.x,
+        playerData.position.y + 1.5,  // look at chest height
+        playerData.position.z
+    );
+
+    // ── CARS ─────────────────────────────────────────────
+    for (const car of POOLS.cars) {
+        if (!car.active) continue;
+        if (car !== GAME.currentCar) {
+            car.data.position.add(car.data.velocity);
+            if (car.data.onHighway) {
+                if (car.data.position.x > LIMITS.worldSize) car.data.position.x = -LIMITS.worldSize;
+            } else {
+                if (car.data.position.z > LIMITS.worldSize) car.data.position.z = -LIMITS.worldSize;
+            }
+            car.mesh.position.copy(car.data.position);
+
+            car.data.honkTimer--;
+            if (car.data.honkTimer <= 0) {
+                car.data.honkTimer = 100 + Math.random() * 200;
+                if (Math.random() > 0.7) playSound('honk');
+            }
+
+            if (!GAME.inCar && playerData.position.distanceTo(car.data.position) < 2.5) {
+                GAME.health -= 10;
+                showEvent('💥 OUCH!');
+                playSound('honk');
+                const knockback = playerData.position.clone().sub(car.data.position).normalize().multiplyScalar(0.5);
+                playerData.position.add(knockback);
+                if (Math.random() > 0.3) spawnCollectibleType('money');
+                updateHUD();
+            }
+        }
+    }
+
+    // ── NPCS ─────────────────────────────────────────────
+    for (const npc of POOLS.npcs) {
+        if (!npc.active) continue;
+        if (npc.data.fleeing) {
+            npc.data.position.add(npc.data.velocity);
+            npc.data.velocity.multiplyScalar(0.95);
+            if (npc.data.position.distanceTo(playerData.position) > 100) {
+                npc.active = false; npc.mesh.visible = false; POOLS.npcsActive--;
+            }
+        } else {
+            npc.data.wanderTimer--;
+            if (npc.data.wanderTimer <= 0) {
+                npc.data.wanderTimer = 50 + Math.random() * 100;
+                const a = Math.random() * Math.PI * 2;
+                npc.data.velocity.set(Math.cos(a) * 0.05, 0, Math.sin(a) * 0.05);
+            }
+            const newPos = npc.data.position.clone().add(npc.data.velocity);
+            if (!checkCollision(newPos, 0.8)) npc.data.position.copy(newPos);
+        }
+        npc.mesh.position.copy(npc.data.position);
+        if (npc.data.velocity.length() > 0.01) {
+            npc.mesh.rotation.y = Math.atan2(npc.data.velocity.x, npc.data.velocity.z);
+        }
+    }
+
+    // ── POLICE ───────────────────────────────────────────
+    for (const p of POOLS.police) {
+        if (!p.active) continue;
+        const dist = p.data.position.distanceTo(playerData.position);
+        if (GAME.wantedLevel > 0 && dist < 50) {
+            const dir = playerData.position.clone().sub(p.data.position).normalize();
+            const spd = 0.15 + GAME.wantedLevel * 0.02;
+            p.data.velocity.copy(dir).multiplyScalar(spd);
+            p.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+        } else {
+            p.data.velocity.multiplyScalar(0.9);
+        }
+        p.data.position.add(p.data.velocity);
+        p.mesh.position.copy(p.data.position);
+        if (dist < 2 && GAME.wantedLevel > 0) getArrested();
+    }
+
+    // ── BULLETS ──────────────────────────────────────────
+    for (const b of POOLS.bullets) {
+        if (!b.active) continue;
+        b.mesh.position.add(b.velocity);
+        let hit = false;
+        for (const car of POOLS.cars) {
+            if (car.active && b.mesh.position.distanceTo(car.data.position) < 2) {
+                hit = true; car.data.velocity.multiplyScalar(0.5); break;
+            }
+        }
+        if (!hit) {
+            for (const npc of POOLS.npcs) {
+                if (npc.active && b.mesh.position.distanceTo(npc.data.position) < 1.5) {
+                    hit = true;
+                    npc.data.fleeing = true;
+                    npc.data.velocity.x = (npc.data.position.x - playerData.position.x) * 0.1;
+                    npc.data.velocity.z = (npc.data.position.z - playerData.position.z) * 0.1;
+                    break;
+                }
+            }
+        }
+        if (Math.abs(b.mesh.position.x) > LIMITS.worldSize ||
+            Math.abs(b.mesh.position.z) > LIMITS.worldSize || hit) {
+            b.active = false; b.mesh.visible = false;
+        }
+    }
+
+    // ── COLLECTIBLES ─────────────────────────────────────
+    for (const c of POOLS.collectibles) {
+        if (!c.active) continue;
+        // Spin the collectible
+        c.mesh.rotation.y += 0.04;
+        if (playerData.position.distanceTo(c.data.position) < 2) {
+            playSound('pickup');
+            switch (c.type) {
+                case 'money':
+                    const amt = 50 + Math.floor(Math.random() * 100);
+                    GAME.money += amt;
+                    showEvent('💰 +$' + amt);
+                    break;
+                case 'gun':
+                    GAME.hasGun = true; GAME.equipped = 'GUN';
+                    showEvent('🔫 GOT GUN!');
+                    break;
+                case 'health':
+                    GAME.health = Math.min(100, GAME.health + 25);
+                    showEvent('❤️ +HEALTH');
+                    break;
+            }
+            c.active = false; c.mesh.visible = false;
+            POOLS.collectiblesActive--;
+            updateHUD();
+        }
+    }
+
+    // ── HEALTH REGEN ─────────────────────────────────────
+    if (GAME.health < 100 && GAME.frameCount % 60 === 0) {
+        GAME.health = Math.min(100, GAME.health + 1);
+        updateHUD();
+    }
+
+    // ── MINIMAP ──────────────────────────────────────────
+    renderMinimap();
+}
+
+// ── RENDER ───────────────────────────────────────────────────
+function render() {
+    renderer.render(scene, camera);
+}
+
+// ── GAME LOOP ────────────────────────────────────────────────
+function gameLoop(currentTime) {
+    requestAnimationFrame(gameLoop);
+    const delta = currentTime - GAME.lastTime;
+    if (delta < GAME.frameInterval) return;
+    GAME.lastTime = currentTime - (delta % GAME.frameInterval);
+    update(GAME.frameInterval / 1000);
+    render();
+    GAME.frameCount++;
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+function init() {
+    const canvas = document.getElementById('gameCanvas');
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a0a);
+    scene.fog = new THREE.Fog(0x0a0a0a, 60, 120);
+
+    camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 500);
+
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.BasicShadowMap;
+
+    ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+    scene.add(ambientLight);
+
+    dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+    dirLight.position.set(50, 100, 50);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 300;
+    dirLight.shadow.camera.left = -80;
+    dirLight.shadow.camera.right = 80;
+    dirLight.shadow.camera.top = 80;
+    dirLight.shadow.camera.bottom = -80;
+    scene.add(dirLight);
+
+    createWorld();
+    createPlayer();
+    initPools();
+    setupControls();
+
+    spawnCar();
+    spawnNPC();
+    updateHUD();
+    showEvent('WELCOME TO BRICKCITY');
+
+    requestAnimationFrame(gameLoop);
+}
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>

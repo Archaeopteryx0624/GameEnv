@@ -1,0 +1,2182 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STELLAR DOMINION II</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/libs/css/fa.min.css">
+<script src="/libs/js/gsap.min.js"></script>
+<style>
+  :root {
+    --player: #00ff88;
+    --enemy: #ff3355;
+    --neutral: #ffcc00;
+    --bg: #01020a;
+    --panel-bg: rgba(4, 10, 28, 0.92);
+    --panel-border: rgba(0, 200, 255, 0.25);
+    --accent: #00cfff;
+    --accent2: #7b2fff;
+    --text: #c8deff;
+    --dim: #4a5f80;
+    --warn: #ff9900;
+    --font-head: 'Orbitron', monospace;
+    --font-body: 'Rajdhani', sans-serif;
+    --glow-player: 0 0 12px #00ff88, 0 0 28px #00ff8844;
+    --glow-enemy: 0 0 12px #ff3355, 0 0 28px #ff335544;
+    --glow-neutral: 0 0 12px #ffcc00, 0 0 28px #ffcc0044;
+    --glow-accent: 0 0 12px #00cfff, 0 0 28px #00cfff44;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    font-family: var(--font-body);
+    color: var(--text);
+    overflow: hidden;
+    user-select: none;
+    width: 100vw; height: 100vh;
+  }
+  #gameCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; }
+  #hud { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
+  .hud-panel {
+    position: absolute; pointer-events: all;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    backdrop-filter: blur(12px); border-radius: 8px;
+  }
+  #stats-panel { top: 14px; left: 14px; padding: 12px 16px; min-width: 200px; }
+  #stats-panel h2 { font-family: var(--font-head); font-size: 11px; letter-spacing: 3px; color: var(--accent); margin-bottom: 10px; text-shadow: var(--glow-accent); }
+  .stat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px; font-weight: 500; }
+  .stat-row i { width: 16px; text-align: center; font-size: 11px; }
+  .stat-val { margin-left: auto; font-family: var(--font-head); font-size: 12px; color: #fff; }
+  #res-panel {
+    top: 14px; left: 50%; transform: translateX(-50%);
+    padding: 8px 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; max-width: 760px;
+  }
+  .res-item { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+  .res-item i { font-size: 12px; }
+  .res-item.metal i { color: #a0c4ff; }
+  .res-item.crystal i { color: #da77ff; }
+  .res-item.energy i { color: #ffe066; }
+  .res-item .rval { font-family: var(--font-head); font-size: 12px; }
+  .res-rate { font-size: 9px; color: var(--dim); margin-left: 2px; }
+  #actions-panel { top: 14px; right: 14px; padding: 12px 16px; min-width: 190px; }
+  #actions-panel h2 { font-family: var(--font-head); font-size: 11px; letter-spacing: 3px; color: var(--accent); margin-bottom: 10px; text-shadow: var(--glow-accent); }
+  .action-btn {
+    display: block; width: 100%; margin-bottom: 6px;
+    background: rgba(0,207,255,0.08); border: 1px solid rgba(0,207,255,0.3);
+    color: var(--text); font-family: var(--font-body); font-size: 12px; font-weight: 600;
+    padding: 7px 10px; border-radius: 5px; cursor: pointer; letter-spacing: 1px; transition: all 0.2s; pointer-events: all;
+  }
+  .action-btn:hover { background: rgba(0,207,255,0.2); border-color: var(--accent); color: #fff; }
+  .action-btn i { margin-right: 6px; }
+  .action-btn.danger { border-color: rgba(255,51,85,0.4); background: rgba(255,51,85,0.08); }
+  .action-btn.danger:hover { background: rgba(255,51,85,0.2); border-color: var(--enemy); }
+  .action-btn.success { border-color: rgba(0,255,136,0.4); background: rgba(0,255,136,0.08); }
+  .action-btn.success:hover { background: rgba(0,255,136,0.2); border-color: var(--player); }
+  #ai-status { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--panel-border); font-size: 11px; color: var(--dim); }
+  #ai-strategy { color: var(--enemy); font-weight: 600; }
+  #bottom-bar {
+    bottom: 14px; left: 50%; transform: translateX(-50%);
+    padding: 8px 18px; font-size: 12px; color: var(--dim);
+    display: flex; gap: 14px; align-items: center; pointer-events: none; flex-wrap: wrap;
+  }
+  .hint { display: flex; align-items: center; gap: 5px; }
+  .key { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 3px; padding: 1px 5px; font-family: var(--font-head); font-size: 9px; color: var(--text); }
+  #info-panel { bottom: 70px; right: 14px; width: 290px; max-height: 540px; overflow-y: auto; padding: 16px; display: none; }
+  #info-panel.visible { display: block; }
+  #info-panel h3 { font-family: var(--font-head); font-size: 13px; letter-spacing: 2px; margin-bottom: 4px; }
+  #info-panel .owner-tag { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
+  .info-section { margin-bottom: 12px; }
+  .info-section h4 { font-family: var(--font-head); font-size: 9px; letter-spacing: 2px; color: var(--dim); margin-bottom: 6px; text-transform: uppercase; }
+  .info-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+  .info-row .lbl { color: var(--dim); }
+  .info-row .val { color: #fff; font-weight: 500; }
+  .bar-wrap { background: rgba(255,255,255,0.06); border-radius: 2px; height: 4px; margin-bottom: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s; }
+  .bar-fill.health { background: var(--player); }
+  .build-btn {
+    display: inline-block; margin: 2px;
+    background: rgba(0,207,255,0.08); border: 1px solid rgba(0,207,255,0.25);
+    color: var(--text); font-family: var(--font-body); font-size: 11px; padding: 4px 8px;
+    border-radius: 4px; cursor: pointer; transition: all 0.15s; pointer-events: all;
+    width: calc(50% - 6px); text-align: left;
+  }
+  .build-btn:hover { background: rgba(0,207,255,0.2); color: #fff; }
+  .build-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .build-btn.building-btn { background: rgba(255,165,0,0.08); border-color: rgba(255,165,0,0.3); width: 100%; margin: 2px 0; }
+  .build-btn.building-btn:hover { background: rgba(255,165,0,0.2); }
+  .build-btn.building-btn.built { background: rgba(0,255,136,0.08); border-color: rgba(0,255,136,0.3); color: var(--player); }
+  .build-btn.dyson-btn { background: rgba(255,200,0,0.08); border-color: rgba(255,200,0,0.4); width: 100%; margin: 2px 0; }
+  .build-btn.dyson-btn:hover { background: rgba(255,200,0,0.2); }
+  .build-btn.dyson-btn.built { background: rgba(255,200,0,0.15); border-color: #ffd700; color: #ffd700; }
+  .queue-item { display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .queue-progress { background: rgba(0,207,255,0.15); border-radius: 2px; overflow: hidden; height: 3px; margin-top: 2px; }
+  .queue-prog-fill { height: 100%; background: var(--accent); }
+  #fleet-controls { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .fleet-btn { flex: 1 1 calc(50% - 4px); background: rgba(0,207,255,0.08); border: 1px solid rgba(0,207,255,0.25); color: var(--text); font-family: var(--font-body); font-size: 11px; padding: 5px 4px; border-radius: 4px; cursor: pointer; text-align: center; transition: all 0.15s; pointer-events: all; }
+  .fleet-btn:hover { background: rgba(0,207,255,0.2); color: #fff; }
+  .fleet-btn.fire-btn { border-color: rgba(255,153,0,0.4); }
+  .fleet-btn.fire-btn:hover { background: rgba(255,153,0,0.2); }
+  #notif-container { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; z-index: 100; }
+  .notif { background: rgba(4,10,28,0.9); border: 1px solid var(--panel-border); padding: 7px 18px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 1px; backdrop-filter: blur(8px); opacity: 0; transform: translateY(-10px); }
+  #send-mode-banner { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); background: rgba(255,153,0,0.15); border: 1px solid var(--warn); color: var(--warn); padding: 8px 24px; border-radius: 20px; font-family: var(--font-head); font-size: 12px; letter-spacing: 2px; display: none; pointer-events: none; z-index: 50; text-shadow: 0 0 8px var(--warn); }
+  #system-indicator {
+    position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+    background: rgba(123,47,255,0.2); border: 1px solid rgba(123,47,255,0.6);
+    color: #b57fff; padding: 6px 20px; border-radius: 20px;
+    font-family: var(--font-head); font-size: 11px; letter-spacing: 2px;
+    pointer-events: none; z-index: 49; display: none;
+    text-shadow: 0 0 8px #7b2fff;
+  }
+  #battle-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(4,10,28,0.97); border: 1px solid rgba(255,51,85,0.5); width: 360px; padding: 20px; border-radius: 10px; display: none; z-index: 200; backdrop-filter: blur(16px); }
+  #battle-overlay h3 { font-family: var(--font-head); font-size: 13px; color: var(--enemy); letter-spacing: 3px; text-align: center; margin-bottom: 14px; text-shadow: var(--glow-enemy); }
+  .battle-sides { display: flex; justify-content: space-between; gap: 14px; }
+  .battle-side h4 { font-family: var(--font-head); font-size: 10px; letter-spacing: 2px; margin-bottom: 8px; }
+  .battle-side.player h4 { color: var(--player); }
+  .battle-side.enemy h4 { color: var(--enemy); }
+  .battle-log { margin-top: 12px; font-size: 11px; line-height: 1.6; max-height: 100px; overflow-y: auto; color: var(--dim); border-top: 1px solid var(--panel-border); padding-top: 8px; }
+  .battle-result { text-align: center; margin-top: 10px; font-family: var(--font-head); font-size: 14px; letter-spacing: 2px; }
+  .win { color: var(--player); text-shadow: var(--glow-player); }
+  .lose { color: var(--enemy); text-shadow: var(--glow-enemy); }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+  ::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 2px; }
+  #speed-panel { bottom: 70px; left: 14px; padding: 10px 14px; }
+  #speed-panel h4 { font-family: var(--font-head); font-size: 9px; letter-spacing: 2px; color: var(--dim); margin-bottom: 6px; }
+  .speed-btns { display: flex; gap: 4px; }
+  .sp-btn { padding: 4px 8px; border-radius: 3px; font-size: 10px; font-family: var(--font-head); cursor: pointer; border: 1px solid rgba(0,207,255,0.25); background: rgba(0,207,255,0.06); color: var(--dim); transition: all 0.15s; pointer-events: all; }
+  .sp-btn.active, .sp-btn:hover { background: rgba(0,207,255,0.2); color: var(--accent); }
+  #minimap-panel { bottom: 130px; left: 14px; width: 200px; height: 130px; padding: 6px; overflow: hidden; }
+  #minimap-panel h4 { font-family: var(--font-head); font-size: 9px; letter-spacing: 2px; color: var(--dim); margin-bottom: 4px; }
+  #minimap-canvas { width: 188px; height: 105px; border-radius: 3px; cursor: pointer; pointer-events: all; }
+  #settings-btn { position: absolute; bottom: 14px; right: 14px; width: 36px; height: 36px; background: rgba(4,10,28,0.85); border: 1px solid rgba(0,200,255,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: all; z-index: 300; transition: background 0.2s, border-color 0.2s; font-size: 15px; color: var(--dim); backdrop-filter: blur(8px); }
+  #settings-btn:hover { background: rgba(0,207,255,0.15); border-color: var(--accent); color: var(--accent); }
+  #settings-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(0,207,255,0.12); }
+  #settings-panel { position: absolute; bottom: 58px; right: 14px; width: 240px; background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 10px; backdrop-filter: blur(16px); padding: 16px; z-index: 299; pointer-events: all; display: none; transform-origin: bottom right; }
+  #settings-panel.open { display: block; }
+  #settings-panel h3 { font-family: var(--font-head); font-size: 10px; letter-spacing: 3px; color: var(--accent); margin-bottom: 14px; text-shadow: var(--glow-accent); }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 12px; font-weight: 600; color: var(--text); }
+  .setting-row span { display: flex; align-items: center; gap: 7px; }
+  .toggle-wrap { position: relative; width: 40px; height: 22px; cursor: pointer; flex-shrink: 0; }
+  .toggle-wrap input { opacity: 0; width: 0; height: 0; }
+  .toggle-track { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 11px; transition: background 0.25s, border-color 0.25s; }
+  .toggle-wrap input:checked + .toggle-track { background: rgba(0,207,255,0.3); border-color: var(--accent); }
+  .toggle-knob { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; background: var(--dim); border-radius: 50%; transition: transform 0.25s, background 0.25s; pointer-events: none; }
+  .toggle-wrap input:checked ~ .toggle-knob { transform: translateX(18px); background: var(--accent); }
+  .settings-divider { height: 1px; background: var(--panel-border); margin: 10px 0; }
+  .setting-note { font-size: 10px; color: var(--dim); line-height: 1.5; margin-top: 4px; }
+  #immersive-ticker { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: none; gap: 14px; align-items: center; background: rgba(4,10,28,0.7); border: 1px solid rgba(0,200,255,0.15); border-radius: 20px; padding: 5px 16px; pointer-events: none; font-size: 11px; font-weight: 600; backdrop-filter: blur(8px); z-index: 10; white-space: nowrap; }
+  #immersive-ticker .ti { display: flex; align-items: center; gap: 4px; }
+  body.immersive #immersive-ticker { display: flex; }
+  body.immersive #stats-panel, body.immersive #res-panel, body.immersive #actions-panel,
+  body.immersive #speed-panel, body.immersive #minimap-panel, body.immersive #bottom-bar { opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+  #stats-panel, #res-panel, #actions-panel, #speed-panel, #minimap-panel, #bottom-bar { transition: opacity 0.4s; }
+  /* Loading screen */
+  #loading-screen {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: #01020a; z-index: 999;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: var(--font-head);
+  }
+  #loading-title { font-size: 32px; font-weight: 900; color: var(--accent); letter-spacing: 8px; text-shadow: var(--glow-accent); margin-bottom: 8px; }
+  #loading-sub { font-size: 11px; color: var(--dim); letter-spacing: 4px; margin-bottom: 40px; }
+  #loading-bar-wrap { width: 300px; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+  #loading-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; box-shadow: 0 0 10px var(--accent); }
+  #loading-status { margin-top: 12px; font-size: 10px; color: var(--dim); letter-spacing: 2px; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+
+<div id="loading-screen">
+  <div id="loading-title">STELLAR DOMINION</div>
+  <div id="loading-sub">MULTI-SYSTEM EDITION</div>
+  <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+  <div id="loading-status">INITIALIZING GALAXY...</div>
+</div>
+
+<div id="hud">
+  <div class="hud-panel" id="stats-panel">
+    <h2>⬡ COMMAND</h2>
+    <div class="stat-row">
+      <i class="fas fa-globe" style="color:var(--player)"></i>
+      <span>Planets</span>
+      <span class="stat-val" id="stat-planets">0</span>
+    </div>
+    <div class="stat-row">
+      <i class="fas fa-rocket" style="color:var(--accent)"></i>
+      <span>Fleets</span>
+      <span class="stat-val" id="stat-fleets">0</span>
+    </div>
+    <div class="stat-row">
+      <i class="fas fa-shield-halved" style="color:#7b2fff"></i>
+      <span>Stations</span>
+      <span class="stat-val" id="stat-stations">0</span>
+    </div>
+    <div class="stat-row">
+      <i class="fas fa-sun" style="color:#ffd700"></i>
+      <span>Dyson</span>
+      <span class="stat-val" id="stat-dyson">0</span>
+    </div>
+    <div class="stat-row">
+      <i class="fas fa-bolt" style="color:#ffe066"></i>
+      <span>Energy</span>
+      <span class="stat-val" id="stat-energy">0</span>
+    </div>
+    <div class="stat-row" id="system-stat-row">
+      <i class="fas fa-location-dot" style="color:#b57fff"></i>
+      <span>System</span>
+      <span class="stat-val" id="stat-system">—</span>
+    </div>
+  </div>
+
+  <div class="hud-panel" id="res-panel">
+    <div class="res-item metal"><i class="fas fa-cubes"></i><span style="color:var(--dim)">METAL</span><span class="rval" id="res-metal">0</span><span class="res-rate" id="res-metal-rate"></span></div>
+    <div style="width:1px;height:20px;background:var(--panel-border)"></div>
+    <div class="res-item crystal"><i class="fas fa-gem"></i><span style="color:var(--dim)">CRYSTAL</span><span class="rval" id="res-crystal">0</span><span class="res-rate" id="res-crystal-rate"></span></div>
+    <div style="width:1px;height:20px;background:var(--panel-border)"></div>
+    <div class="res-item energy"><i class="fas fa-bolt"></i><span style="color:var(--dim)">ENERGY</span><span class="rval" id="res-energy">0</span></div>
+    <div style="width:1px;height:20px;background:var(--panel-border)"></div>
+    <div class="res-item" style="color:#ff9900"><i class="fas fa-bomb"></i><span style="color:var(--dim)">MISSILES</span><span class="rval" id="res-missiles">0</span></div>
+  </div>
+
+  <div class="hud-panel" id="actions-panel">
+    <h2>⊕ ACTIONS</h2>
+    <button class="action-btn success" onclick="game.selectMode='sendfleet'; showSendBanner()">▶ SEND FLEET</button>
+    <button class="action-btn" onclick="game.selectMode='mine'; showNotif('Select an asteroid to mine','#a0c4ff')">⛏ MINE ASTEROID</button>
+    <button class="action-btn danger" onclick="game.selectMode='missile'; showNotif('Select a target','#ff9900')">✦ FIRE MISSILE</button>
+    <div id="ai-status">AI: <span id="ai-strategy">EXPANDING</span> &nbsp;|&nbsp; Turn <span id="ai-turn">0</span></div>
+  </div>
+
+  <div id="notif-container"></div>
+  <div id="send-mode-banner">▶ &nbsp; SELECT DESTINATION</div>
+  <div id="system-indicator" id="system-indicator-el"></div>
+
+  <div class="hud-panel" id="info-panel"><div id="info-content"></div></div>
+
+  <div class="hud-panel" id="speed-panel">
+    <h4>GAME SPEED</h4>
+    <div class="speed-btns">
+      <button class="sp-btn" onclick="setSpeed(0.5)" id="spd-half">×½</button>
+      <button class="sp-btn active" onclick="setSpeed(1)" id="spd-1">×1</button>
+      <button class="sp-btn" onclick="setSpeed(2)" id="spd-2">×2</button>
+      <button class="sp-btn" onclick="setSpeed(3)" id="spd-3">×3</button>
+    </div>
+  </div>
+
+  <div class="hud-panel" id="minimap-panel">
+    <h4>GALAXY MAP</h4>
+    <canvas id="minimap-canvas" width="188" height="105"></canvas>
+  </div>
+
+  <div class="hud-panel" id="bottom-bar">
+    <div class="hint"><span class="key">DRAG</span> Pan</div>
+    <div class="hint"><span class="key">SCROLL</span> Zoom</div>
+    <div class="hint"><span class="key">CLICK</span> Select</div>
+    <div class="hint"><span class="key">S</span> Send fleet</div>
+    <div class="hint"><span class="key">M</span> Mine</div>
+    <div class="hint"><span class="key">WARP</span> Click gate</div>
+    <div class="hint"><span class="key">ESC</span> Cancel</div>
+  </div>
+
+  <div id="immersive-ticker">
+    <div class="ti" style="color:#a0c4ff">⛏ <span id="itk-metal">0</span></div>
+    <div style="width:1px;height:14px;background:rgba(255,255,255,0.1)"></div>
+    <div class="ti" style="color:#da77ff">◈ <span id="itk-crystal">0</span></div>
+    <div style="width:1px;height:14px;background:rgba(255,255,255,0.1)"></div>
+    <div class="ti" style="color:#ffe066">⚡ <span id="itk-energy">0</span></div>
+    <div style="width:1px;height:14px;background:rgba(255,255,255,0.1)"></div>
+    <div class="ti" style="color:#00ff88">◉ <span id="itk-planets">0</span>p</div>
+  </div>
+
+  <button id="settings-btn" onclick="toggleSettings()" title="Settings">⚙</button>
+  <div id="settings-panel">
+    <h3>⚙ DISPLAY SETTINGS</h3>
+    <div class="setting-row"><span>🎮 Full HUD</span><label class="toggle-wrap"><input type="checkbox" id="toggle-hud" checked onchange="applyHUDMode()"><div class="toggle-track"></div><div class="toggle-knob"></div></label></div>
+    <div class="settings-divider"></div>
+    <div class="setting-row"><span>🗺 Minimap</span><label class="toggle-wrap"><input type="checkbox" id="toggle-minimap" checked onchange="applyMinimapToggle()"><div class="toggle-track"></div><div class="toggle-knob"></div></label></div>
+    <div class="setting-row"><span>📊 Stats</span><label class="toggle-wrap"><input type="checkbox" id="toggle-stats" checked onchange="applyPanelToggle('stats-panel', this)"><div class="toggle-track"></div><div class="toggle-knob"></div></label></div>
+    <div class="setting-row"><span>💰 Resources</span><label class="toggle-wrap"><input type="checkbox" id="toggle-res" checked onchange="applyPanelToggle('res-panel', this)"><div class="toggle-track"></div><div class="toggle-knob"></div></label></div>
+    <div class="setting-row"><span>🎯 Actions</span><label class="toggle-wrap"><input type="checkbox" id="toggle-actions" checked onchange="applyPanelToggle('actions-panel', this)"><div class="toggle-track"></div><div class="toggle-knob"></div></label></div>
+    <div class="setting-row"><span>⏩ Speed</span><label class="toggle-wrap"><input type="checkbox" id="toggle-speed" checked onchange="applyPanelToggle('speed-panel', this)"><div class="toggle-track"></div><div class="toggle-knob"></div></label></div>
+    <div class="settings-divider"></div>
+    <div class="setting-note">Tap a planet or fleet in immersive mode to inspect it.</div>
+  </div>
+
+  <div id="battle-overlay">
+    <h3>⚡ SPACE BATTLE</h3>
+    <div class="battle-sides">
+      <div class="battle-side player"><h4>PLAYER FORCES</h4><div id="battle-player-ships"></div></div>
+      <div class="battle-side enemy"><h4>ENEMY FORCES</h4><div id="battle-enemy-ships"></div></div>
+    </div>
+    <div class="battle-log" id="battle-log"></div>
+    <div class="battle-result" id="battle-result"></div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// STELLAR DOMINION II — Multi-System Edition
+// ================================================================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const mmCanvas = document.getElementById('minimap-canvas');
+const mmCtx = mmCanvas.getContext('2d');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+
+// ============================================================
+// MULTI-SYSTEM MAP CONSTANTS
+// Systems are arranged in a galaxy grid
+// Each system has its own local space
+// ============================================================
+const NUM_SYSTEMS = 9; // 3x3 grid of star systems
+const SYSTEM_W = 3200;
+const SYSTEM_H = 2400;
+const SYSTEM_COLS = 3;
+const SYSTEM_ROWS = 3;
+const GALAXY_W = SYSTEM_W * SYSTEM_COLS;
+const GALAXY_H = SYSTEM_H * SYSTEM_ROWS;
+
+// System types
+const SYSTEM_TYPES = ['normal','normal','normal','binary','giant','dwarf','nebula','normal','blackhole'];
+
+// ============================================================
+// CAMERA
+// ============================================================
+const CAM = {
+  x: 0, y: 0,
+  zoom: 0.5,
+  minZoom: 0.08,
+  maxZoom: 2.5,
+  dragging: false,
+  dragStartX: 0, dragStartY: 0,
+  camStartX: 0, camStartY: 0,
+};
+
+function worldToScreen(wx, wy) { return { x: (wx - CAM.x) * CAM.zoom, y: (wy - CAM.y) * CAM.zoom }; }
+function screenToWorld(sx, sy) { return { x: sx / CAM.zoom + CAM.x, y: sy / CAM.zoom + CAM.y }; }
+function clampCamera() {
+  const sw = canvas.width / CAM.zoom;
+  const sh = canvas.height / CAM.zoom;
+  CAM.x = Math.max(-500, Math.min(GALAXY_W - sw + 500, CAM.x));
+  CAM.y = Math.max(-500, Math.min(GALAXY_H - sh + 500, CAM.y));
+}
+function getVisibleRect() {
+  return {
+    x0: CAM.x - 200, y0: CAM.y - 200,
+    x1: CAM.x + canvas.width / CAM.zoom + 200,
+    y1: CAM.y + canvas.height / CAM.zoom + 200
+  };
+}
+function inView(x, y, r = 0) {
+  const v = getVisibleRect();
+  return x + r > v.x0 && x - r < v.x1 && y + r > v.y0 && y - r < v.y1;
+}
+function getSystemAt(col, row) { return col + row * SYSTEM_COLS; }
+function systemOrigin(sysIdx) {
+  return {
+    x: (sysIdx % SYSTEM_COLS) * SYSTEM_W,
+    y: Math.floor(sysIdx / SYSTEM_COLS) * SYSTEM_H,
+  };
+}
+function getCurrentSystemIdx() {
+  const cx = CAM.x + canvas.width / 2 / CAM.zoom;
+  const cy = CAM.y + canvas.height / 2 / CAM.zoom;
+  const col = Math.floor(cx / SYSTEM_W);
+  const row = Math.floor(cy / SYSTEM_H);
+  return Math.max(0, Math.min(NUM_SYSTEMS - 1, col + row * SYSTEM_COLS));
+}
+
+// ============================================================
+// SHIP TYPES — with shape configs for triangle rendering
+// ============================================================
+const SHIP_TYPES = {
+  Scout:       { hp:30,  atk:8,   def:3,  speed:3.5, cost:{metal:60,crystal:20},   buildTime:6,  color:'#00cfff', needsShipyard:true,
+    shape:'scout',     size:10, trailLen:18, trailColor:'rgba(0,200,255,' },
+  Fighter:     { hp:60,  atk:18,  def:8,  speed:2.4, cost:{metal:120,crystal:40},  buildTime:10, color:'#00ff88', needsShipyard:true,
+    shape:'fighter',   size:13, trailLen:22, trailColor:'rgba(0,255,136,' },
+  Destroyer:   { hp:140, atk:34,  def:18, speed:1.8, cost:{metal:260,crystal:90},  buildTime:18, color:'#ffd700', needsShipyard:true,
+    shape:'destroyer', size:17, trailLen:28, trailColor:'rgba(255,215,0,' },
+  Dreadnought: { hp:400, atk:80,  def:50, speed:0.9, cost:{metal:700,crystal:280}, buildTime:45, color:'#ff6600', needsShipyard:true,
+    shape:'dreadnought',size:24,trailLen:35, trailColor:'rgba(255,102,0,' },
+  Miner:       { hp:40,  atk:2,   def:4,  speed:1.5, cost:{metal:90,crystal:60},   buildTime:12, color:'#a0c4ff', needsShipyard:true,
+    shape:'miner',     size:12, trailLen:14, trailColor:'rgba(160,196,255,' },
+  Missile:     { hp:10,  atk:120, def:0,  speed:5.5, cost:{metal:40,crystal:80},   buildTime:5,  color:'#ff3355', needsShipyard:false,
+    shape:'missile',   size:6,  trailLen:10, trailColor:'rgba(255,51,85,' },
+  Defense:     { hp:80,  atk:20,  def:15, speed:0,   cost:{metal:0,crystal:0},     buildTime:0,  color:'#7b2fff', needsShipyard:false,
+    shape:'defense',   size:8,  trailLen:0,  trailColor:'rgba(123,47,255,' },
+};
+
+// ============================================================
+// BUILDINGS
+// ============================================================
+const BUILDINGS = {
+  MetalMine:   { name:'Metal Mine',   icon:'⛏', cost:{metal:150,crystal:50},  buildTime:20, description:'Generates metal', color:'#a0c4ff' },
+  CrystalMine: { name:'Crystal Mine', icon:'◈', cost:{metal:100,crystal:100}, buildTime:20, description:'Generates crystal', color:'#da77ff' },
+  PowerPlant:  { name:'Power Plant',  icon:'⚡', cost:{metal:200,crystal:80},  buildTime:25, description:'Provides energy', color:'#ffe066' },
+  Shipyard:    { name:'Shipyard',     icon:'⚙', cost:{metal:300,crystal:150}, buildTime:35, description:'Required for ships', color:'#00cfff' },
+};
+const MINE_METAL_BONUS = 12;
+const MINE_CRYSTAL_BONUS = 6;
+const POWER_PER_PLANT = 40;
+const DYSON_POWER_BONUS = 200; // energy from Dyson sphere
+const DYSON_COST = { metal: 2000, crystal: 1500 };
+const DYSON_BUILD_TIME = 120; // seconds
+
+// ============================================================
+// SYSTEMS DATA — generated once
+// ============================================================
+const SYSTEMS = [];
+
+// ============================================================
+// GAME STATE
+// ============================================================
+const G = {
+  systems: [],
+  planets: [],       // all planets across all systems
+  asteroids: [],
+  fleets: [],
+  missiles: [],
+  stars: [],         // per-system star fields
+  nebulae: [],
+  warpGates: [],     // inter-system warp gates: { sysA, sysB, xA, yA, xB, yB }
+  selectedObj: null,
+  selectMode: 'normal',
+  sourcePlanet: null,
+  aiTurn: 0,
+  aiStrategy: 'EXPAND',
+  tick: 0,
+  speed: 1,
+  playerMetal: 800,
+  playerCrystal: 500,
+  playerEnergy: 10,
+  playerMissiles: 5,
+  gameOver: false,
+  loadedChunks: new Set(), // which system chunks are loaded for rendering
+};
+
+// ============================================================
+// MATH UTILS
+// ============================================================
+function rnd(min, max) { return Math.random() * (max - min) + min; }
+function rndInt(min, max) { return Math.floor(rnd(min, max + 1)); }
+function dist(a, b) { return Math.hypot(b.x - a.x, b.y - a.y); }
+function hexToRgb(hex) { const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return [r,g,b]; }
+function lighten(hex,amt) { const [r,g,b]=hexToRgb(hex); return `rgb(${Math.min(255,r+amt)},${Math.min(255,g+amt)},${Math.min(255,b+amt)})`; }
+function darken(hex,amt) { const [r,g,b]=hexToRgb(hex); return `rgb(${Math.max(0,r-amt)},${Math.max(0,g-amt)},${Math.max(0,b-amt)})`; }
+function ownerColor(owner) { if(owner==='player') return '#00ff88'; if(owner==='enemy') return '#ff3355'; return '#ffcc00'; }
+function shipCount(fl) { return Object.values(fl.ships).reduce((s,v)=>s+v,0); }
+
+// ============================================================
+// GENERATION
+// ============================================================
+const SUN_COLORS = ['#fff8e0','#ffe066','#ffaa44','#ff7733','#aaddff','#88bbff'];
+const BLACKHOLE_SYSTEM = 4; // center system is black hole system
+const SYS_NAMES = ['Alpha Centauri','Betelgeuse','Vega Prime','Sirius Reach','Void Nexus','Antares Gate','Lyra Deep','Cygnus Rift','Draco Terminus'];
+const PLANET_NAMES_ALL = [
+  'Kepler','Solus','Vega','Orion','Lyra','Cygnus','Draco','Hydra','Sirius','Altair',
+  'Rigel','Antares','Arcturus','Procyon','Capella','Deneb','Pollux','Castor','Mimosa','Acrux',
+  'Spica','Fomalhaut','Bellatrix','Elnath','Alnilam','Saiph','Mintaka','Meissa','Hadar','Mira',
+  'Alcor','Mizar','Alioth','Megrez','Phecda','Dubhe','Merak','Thuban','Pherkad','Kochab',
+  'Rasalhague','Yed','Sabik','Marfik','Cebalrai','Kelb','Graffias','Dschubba','Fang','Jabbah',
+  'Shaula','Lesath','Girtab','Apollyon','Sargas','Kaus','Nunki','Kappa','Phi','Tau',
+  'Arkab','Rho','Ascella','Manubrium','Terebellum','Alnaim','Albaldah','Rukbat','Nanto','Ainalrami',
+  'Vernal','Sarin','Maasym','Cajam','Marsic','Kornephoros','Rutilicus','Cujam','Marfak','Alkes',
+  'Alphard','Minchir','Ukdah','Krassar','Ashlesha','Zeta','Eta','Theta','Iota','Lambda',
+  'Mu Dra','Nu Oph','Xi Sgr','Pi Her','Omicron','Sigma','Upsilon','Chi','Psi','Omega'
+];
+const PLANET_COLORS = ['#4477ff','#44aaff','#ff7744','#ff44aa','#aa44ff','#44ffaa','#ff9944','#44ffdd','#dd44ff','#ffaa44','#55ff88','#ff5577'];
+
+function generateGalaxy() {
+  let pIdx = 0;
+  const warpConnections = [
+    [0,1],[1,2],[0,3],[1,4],[2,5],[3,4],[4,5],[3,6],[4,7],[5,8],[6,7],[7,8]
+  ];
+
+  for (let si = 0; si < NUM_SYSTEMS; si++) {
+    const col = si % SYSTEM_COLS;
+    const row = Math.floor(si / SYSTEM_COLS);
+    const ox = col * SYSTEM_W;
+    const oy = row * SYSTEM_H;
+    const isBlackhole = si === BLACKHOLE_SYSTEM;
+
+    // Sun
+    const sunColor = isBlackhole ? '#000000' : SUN_COLORS[rndInt(0, SUN_COLORS.length - 1)];
+    const sunRadius = isBlackhole ? 80 : rndInt(45, 90);
+    const sun = {
+      x: ox + SYSTEM_W * 0.5 + rnd(-120, 120),
+      y: oy + SYSTEM_H * 0.5 + rnd(-80, 80),
+      radius: sunRadius,
+      color: sunColor,
+      isBlackhole,
+      dysonsphere: false,   // can be built by player or enemy
+      dysonOwner: null,
+      dysonBuilding: false, dysonElapsed: 0,
+      sysIdx: si,
+      type: isBlackhole ? 'blackhole' : 'sun',
+      coronaAngle: rnd(0, Math.PI * 2),
+      flareTimer: rnd(0, 100),
+    };
+
+    // Planets in this system (10-12 per system = ~100 total)
+    const numPlanets = rndInt(10, 12);
+    const sysPlanets = [];
+
+    // Assign ownership: player starts in system 0, enemy in system 8, rest neutral
+    let ownerDist = 'neutral';
+    if (si === 0) ownerDist = 'player';
+    if (si === 8) ownerDist = 'enemy';
+
+    for (let pi = 0; pi < numPlanets; pi++) {
+      let placed = false;
+      let attempts = 0;
+      let px, py;
+      while (!placed && attempts < 100) {
+        const angle = rnd(0, Math.PI * 2);
+        const r = rnd(180, Math.min(SYSTEM_W, SYSTEM_H) * 0.44);
+        px = sun.x + Math.cos(angle) * r;
+        py = sun.y + Math.sin(angle) * r;
+        // Keep inside system
+        px = Math.max(ox + 80, Math.min(ox + SYSTEM_W - 80, px));
+        py = Math.max(oy + 80, Math.min(oy + SYSTEM_H - 80, py));
+        // No overlap with existing
+        const ok = sysPlanets.every(ep => Math.hypot(px - ep.x, py - ep.y) > 120);
+        if (ok) placed = true;
+        attempts++;
+      }
+
+      let owner = 'neutral';
+      if (ownerDist === 'player' && pi < 3) owner = 'player';
+      else if (ownerDist === 'enemy' && pi < 4) owner = 'enemy';
+
+      const buildings = {};
+      if (owner === 'player') { buildings.MetalMine = 1; buildings.PowerPlant = 1; buildings.Shipyard = 1; }
+      else if (owner === 'enemy') { buildings.MetalMine = 1; buildings.PowerPlant = 1; buildings.Shipyard = 1; }
+
+      const planet = {
+        type: 'planet', id: 'p' + pIdx++,
+        name: PLANET_NAMES_ALL[pIdx % PLANET_NAMES_ALL.length],
+        x: px, y: py,
+        owner, sysIdx: si,
+        radius: rndInt(20, 38),
+        population: rndInt(100, 500),
+        defenses: rndInt(0, owner === 'enemy' ? 60 : 20),
+        metal: rndInt(100, 300),
+        crystal: rndInt(50, 150),
+        metalRate: rndInt(5, 15),
+        crystalRate: rndInt(3, 8),
+        buildings,
+        buildingQueue: [],
+        shipyard: owner !== 'neutral',
+        warpGate: false,
+        defenseStations: owner === 'enemy' ? [createStation(px, py, 'enemy')] : [],
+        buildQueue: [],
+        orbitingFleets: [],
+        missileStock: owner === 'player' ? rndInt(3, 8) : rndInt(0, 2),
+        color: PLANET_COLORS[pIdx % PLANET_COLORS.length],
+        angle: rnd(0, Math.PI * 2),
+      };
+      sysPlanets.push(planet);
+      G.planets.push(planet);
+    }
+
+    // Asteroids in system
+    const sysAsteroids = [];
+    const numAsteroids = rndInt(2, 5);
+    for (let ai = 0; ai < numAsteroids; ai++) {
+      const angle = rnd(0, Math.PI * 2);
+      const r = rnd(150, Math.min(SYSTEM_W, SYSTEM_H) * 0.48);
+      const ax = Math.max(ox+60, Math.min(ox+SYSTEM_W-60, sun.x + Math.cos(angle)*r));
+      const ay = Math.max(oy+60, Math.min(oy+SYSTEM_H-60, sun.y + Math.sin(angle)*r));
+      sysAsteroids.push({
+        type:'asteroid', id:'a'+si+'_'+ai,
+        name:'Asteroid '+si+String.fromCharCode(65+ai),
+        x:ax, y:ay, sysIdx:si,
+        owner:'neutral', metal:rndInt(400,1200), crystal:rndInt(200,700),
+        radius:rndInt(14,24), angle:rnd(0,Math.PI*2),
+        orbitingFleets:[], isMining:false, defenseStations:[],
+      });
+      G.asteroids.push(sysAsteroids[sysAsteroids.length - 1]);
+    }
+
+    // Stars background for this system
+    const sysStars = Array.from({length:200}, () => ({
+      x: ox + rnd(0, SYSTEM_W), y: oy + rnd(0, SYSTEM_H),
+      r: rnd(0.3, 2.0), brightness: rnd(0.3, 1.0),
+      twinkle: rnd(0, Math.PI * 2),
+      layer: rndInt(0, 2),
+    }));
+
+    // Nebulae for this system
+    const nebCols = ['rgba(50,20,100,','rgba(0,60,80,','rgba(80,10,40,','rgba(20,60,20,','rgba(60,30,0,','rgba(10,40,80,'];
+    const sysNebulae = Array.from({length:3}, () => ({
+      x: ox + rnd(200, SYSTEM_W-200), y: oy + rnd(200, SYSTEM_H-200),
+      r: rnd(300, 700),
+      col: nebCols[rndInt(0, nebCols.length-1)],
+      alpha: rnd(0.06, 0.15),
+    }));
+
+    SYSTEMS.push({
+      idx: si, col, row, ox, oy,
+      name: SYS_NAMES[si],
+      sun, isBlackhole,
+      planets: sysPlanets,
+      asteroids: sysAsteroids,
+      stars: sysStars,
+      nebulae: sysNebulae,
+    });
+  }
+
+  // Create warp gate connections between systems
+  warpConnections.forEach(([sA, sB]) => {
+    const sysA = SYSTEMS[sA], sysB = SYSTEMS[sB];
+    // Place gates near the shared border
+    const edge = getSharedEdge(sA, sB);
+    G.warpGates.push({
+      id: `wg_${sA}_${sB}`,
+      sysA, sysB,
+      xA: edge.xA, yA: edge.yA,
+      xB: edge.xB, yB: edge.yB,
+      phase: rnd(0, Math.PI * 2),
+    });
+  });
+
+  G.systems = SYSTEMS;
+  // Add stars / nebulae ref to main state for backward compat
+  G.stars = SYSTEMS.flatMap(s => s.stars);
+  G.nebulae = SYSTEMS.flatMap(s => s.nebulae);
+}
+
+function getSharedEdge(sA, sB) {
+  const colA = sA % SYSTEM_COLS, rowA = Math.floor(sA / SYSTEM_COLS);
+  const colB = sB % SYSTEM_COLS, rowB = Math.floor(sB / SYSTEM_COLS);
+  const oxA = colA * SYSTEM_W, oyA = rowA * SYSTEM_H;
+  const oxB = colB * SYSTEM_W, oyB = rowB * SYSTEM_H;
+
+  // Horizontal neighbor
+  if (rowA === rowB && Math.abs(colA - colB) === 1) {
+    const borderX = (colA < colB) ? oxA + SYSTEM_W : oxB + SYSTEM_W;
+    const midY = oyA + SYSTEM_H * 0.5 + rnd(-SYSTEM_H * 0.15, SYSTEM_H * 0.15);
+    return { xA: borderX - (colA < colB ? 80 : -80), yA: midY, xB: borderX + (colA < colB ? 80 : -80), yB: midY };
+  }
+  // Vertical neighbor
+  const borderY = (rowA < rowB) ? oyA + SYSTEM_H : oyB + SYSTEM_H;
+  const midX = oxA + SYSTEM_W * 0.5 + rnd(-SYSTEM_W * 0.15, SYSTEM_W * 0.15);
+  return { xA: midX, yA: borderY - (rowA < rowB ? 80 : -80), xB: midX, yB: borderY + (rowA < rowB ? 80 : -80) };
+}
+
+function createStation(px, py, owner) {
+  const angle = rnd(0, Math.PI * 2);
+  const orbitR = rndInt(50, 80);
+  return { owner, hp:180, maxHp:180, atk:28, cooldown:0, angle, orbitR, orbitSpeed:0.006,
+    x: px+Math.cos(angle)*orbitR, y: py+Math.sin(angle)*orbitR,
+    parentX:px, parentY:py, fireTimer:0, laserTarget:null, laserAlpha:0 };
+}
+
+function spawnPlayerFleet() {
+  const playerPlanets = G.planets.filter(p => p.owner === 'player');
+  if (playerPlanets.length >= 2) {
+    const p0 = playerPlanets[0];
+    const fl0 = createFleet('player', p0.x, p0.y, { Fighter:3, Scout:2 });
+    p0.orbitingFleets.push(fl0); G.fleets.push(fl0);
+    const p1 = playerPlanets[1];
+    const fl1 = createFleet('player', p1.x, p1.y, { Fighter:2, Miner:1 });
+    p1.orbitingFleets.push(fl1); G.fleets.push(fl1);
+  }
+}
+
+function createFleet(owner, x, y, ships) {
+  return {
+    type:'fleet', id:'f'+Date.now()+Math.random(),
+    owner, x, y,
+    ships:{...ships},
+    traveling:false,
+    targetX:x, targetY:y,
+    targetObj:null,
+    progress:0, startX:x, startY:y,
+    speed:1.5,
+    trail:[],
+    warpingTo:null, // inter-system warp in progress
+    sysIdx: 0,      // current system
+  };
+}
+
+// ============================================================
+// BUILDING HELPERS
+// ============================================================
+function getBuildingLevel(planet, type) { return (planet.buildings && planet.buildings[type]) || 0; }
+function hasPower(planet) { return getPlanetEnergy(planet) >= 0; }
+function getPlanetEnergy(planet) {
+  const plants = getBuildingLevel(planet,'PowerPlant');
+  const sys = SYSTEMS[planet.sysIdx];
+  const dysonBonus = (sys && sys.sun.dysonsphere && sys.sun.dysonOwner === planet.owner) ? DYSON_POWER_BONUS : 0;
+  const energyProd = plants * POWER_PER_PLANT + dysonBonus;
+  const consumption = getBuildingLevel(planet,'MetalMine')*10 + getBuildingLevel(planet,'CrystalMine')*10 + getBuildingLevel(planet,'Shipyard')*15;
+  return energyProd - consumption;
+}
+function getPlanetMetalRate(planet) { if(!hasPower(planet)) return 0; return planet.metalRate + getBuildingLevel(planet,'MetalMine')*MINE_METAL_BONUS; }
+function getPlanetCrystalRate(planet) { if(!hasPower(planet)) return 0; return planet.crystalRate + getBuildingLevel(planet,'CrystalMine')*MINE_CRYSTAL_BONUS; }
+function hasShipyard(planet) { return getBuildingLevel(planet,'Shipyard') > 0; }
+function getTotalPlayerEnergy() {
+  return G.planets.filter(p=>p.owner==='player').reduce((sum,p)=>sum+Math.max(0,getPlanetEnergy(p)),0);
+}
+function countPlayerDysonSpheres() {
+  return SYSTEMS.filter(s => s.sun.dysonsphere && s.sun.dysonOwner === 'player').length;
+}
+
+// ============================================================
+// CHUNK LOADING — only render visible systems
+// ============================================================
+function updateLoadedChunks() {
+  const v = getVisibleRect();
+  G.loadedChunks.clear();
+  SYSTEMS.forEach(sys => {
+    const inV = !(sys.ox + SYSTEM_W < v.x0 || sys.ox > v.x1 || sys.oy + SYSTEM_H < v.y0 || sys.oy > v.y1);
+    if (inV) G.loadedChunks.add(sys.idx);
+  });
+}
+
+// ============================================================
+// CAMERA HELPERS
+// ============================================================
+function applyCamera() { ctx.save(); ctx.scale(CAM.zoom, CAM.zoom); ctx.translate(-CAM.x, -CAM.y); }
+function restoreCamera() { ctx.restore(); }
+
+function centerOnStart() {
+  const p = G.planets.find(pl => pl.owner === 'player');
+  if (p) {
+    CAM.x = p.x - canvas.width / 2 / CAM.zoom;
+    CAM.y = p.y - canvas.height / 2 / CAM.zoom;
+    clampCamera();
+  }
+}
+
+// ============================================================
+// DRAW — STARS (per loaded system with parallax)
+// ============================================================
+function drawStars(t) {
+  G.loadedChunks.forEach(si => {
+    const sys = SYSTEMS[si];
+    sys.stars.forEach(s => {
+      const alpha = s.brightness * (0.6 + 0.4 * Math.sin(s.twinkle + t * 0.001));
+      const pFactor = [0.2, 0.6, 1.0][s.layer];
+      const sx = (s.x - CAM.x * pFactor) * CAM.zoom;
+      const sy = (s.y - CAM.y * pFactor) * CAM.zoom;
+      // Wrap stars within system viewport
+      const sysSW = SYSTEM_W * CAM.zoom;
+      const sysSH = SYSTEM_H * CAM.zoom;
+      const ox = sys.ox * CAM.zoom;
+      const oy = sys.oy * CAM.zoom;
+      // Only draw if on screen roughly
+      if (sx < -20 || sx > canvas.width + 20 || sy < -20 || sy > canvas.height + 20) return;
+      ctx.beginPath();
+      ctx.arc(sx, sy, s.r * Math.max(0.5, CAM.zoom), 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.fill();
+    });
+  });
+}
+
+// ============================================================
+// DRAW — NEBULAE
+// ============================================================
+function drawNebulae() {
+  applyCamera();
+  G.loadedChunks.forEach(si => {
+    SYSTEMS[si].nebulae.forEach(n => {
+      if (!inView(n.x, n.y, n.r)) return;
+      const grad = ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r);
+      grad.addColorStop(0, n.col + n.alpha + ')');
+      grad.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,Math.PI*2); ctx.fill();
+    });
+  });
+  restoreCamera();
+}
+
+// ============================================================
+// DRAW — SYSTEM BORDERS (faint grid showing system boundaries)
+// ============================================================
+function drawSystemBorders(t) {
+  applyCamera();
+  for (let si = 0; si < NUM_SYSTEMS; si++) {
+    const sys = SYSTEMS[si];
+    if (!inView(sys.ox + SYSTEM_W/2, sys.oy + SYSTEM_H/2, Math.max(SYSTEM_W, SYSTEM_H))) continue;
+    // Border
+    ctx.strokeStyle = 'rgba(100,60,200,0.15)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([16, 12]);
+    ctx.strokeRect(sys.ox, sys.oy, SYSTEM_W, SYSTEM_H);
+    ctx.setLineDash([]);
+    // System name (only visible when zoomed out)
+    if (CAM.zoom < 0.3) {
+      ctx.font = `bold ${Math.floor(28 / CAM.zoom)}px 'Orbitron'`;
+      ctx.fillStyle = `rgba(180,140,255,${0.2 + 0.1 * Math.sin(t * 0.002 + si)})`;
+      ctx.textAlign = 'center';
+      ctx.fillText(sys.name, sys.ox + SYSTEM_W/2, sys.oy + SYSTEM_H/2);
+    }
+  }
+  restoreCamera();
+}
+
+// ============================================================
+// DRAW — SUNS (with corona, flares, Dyson sphere)
+// ============================================================
+function drawSuns(t) {
+  applyCamera();
+  G.loadedChunks.forEach(si => {
+    const sys = SYSTEMS[si];
+    const sun = sys.sun;
+    if (!inView(sun.x, sun.y, sun.radius * 6)) return;
+
+    if (sun.isBlackhole) {
+      drawBlackhole(sun, t);
+    } else {
+      drawSun(sun, t);
+    }
+  });
+  restoreCamera();
+}
+
+function drawSun(sun, t) {
+  sun.coronaAngle += 0.002;
+  const pulse = 0.85 + 0.15 * Math.sin(t * 0.005);
+  const r = sun.radius;
+
+  // Outer corona
+  for (let i = 3; i > 0; i--) {
+    const gc = ctx.createRadialGradient(sun.x,sun.y,r*0.5,sun.x,sun.y,r*(2.5+i));
+    gc.addColorStop(0, hexToRgba(sun.color, 0.04 * i));
+    gc.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle = gc;
+    ctx.beginPath(); ctx.arc(sun.x,sun.y,r*(2.5+i),0,Math.PI*2); ctx.fill();
+  }
+
+  // Dyson sphere
+  if (sun.dysonsphere) {
+    drawDysonSphere(sun, t);
+  } else if (sun.dysonBuilding) {
+    // Construction progress ring
+    const prog = sun.dysonElapsed / (DYSON_BUILD_TIME * 60);
+    ctx.beginPath();
+    ctx.arc(sun.x,sun.y,r*3.5,-Math.PI/2,-Math.PI/2+prog*Math.PI*2);
+    ctx.strokeStyle = sun.dysonOwner === 'player' ? '#00ff88' : '#ff3355';
+    ctx.lineWidth = 6;
+    ctx.setLineDash([8,4]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font = `bold 10px 'Orbitron'`;
+    ctx.fillStyle = '#ffd700'; ctx.textAlign = 'center';
+    ctx.fillText(`DYSON ${Math.floor(prog*100)}%`, sun.x, sun.y - r - 14);
+  }
+
+  // Solar flares
+  sun.flareTimer -= 1;
+  if (sun.flareTimer <= 0) {
+    sun.flareTimer = rnd(60, 200);
+    sun.flares = sun.flares || [];
+    sun.flares.push({ angle: rnd(0, Math.PI*2), len: rnd(r*0.5, r*1.5), life: 40, maxLife: 40 });
+  }
+  if (sun.flares) {
+    sun.flares = sun.flares.filter(fl => fl.life > 0);
+    sun.flares.forEach(fl => {
+      fl.life--;
+      const alpha = fl.life / fl.maxLife;
+      const fx = sun.x + Math.cos(fl.angle) * (r + fl.len * (1 - alpha));
+      const fy = sun.y + Math.sin(fl.angle) * (r + fl.len * (1 - alpha));
+      ctx.beginPath();
+      ctx.moveTo(sun.x + Math.cos(fl.angle)*r, sun.y + Math.sin(fl.angle)*r);
+      ctx.lineTo(fx, fy);
+      ctx.strokeStyle = `rgba(255,200,80,${alpha * 0.8})`;
+      ctx.lineWidth = 3 * alpha;
+      ctx.stroke();
+    });
+  }
+
+  // Sun body
+  const sunGrad = ctx.createRadialGradient(sun.x - r*0.2, sun.y - r*0.2, 0, sun.x, sun.y, r * pulse);
+  sunGrad.addColorStop(0, lighten(sun.color, 80));
+  sunGrad.addColorStop(0.4, sun.color);
+  sunGrad.addColorStop(0.8, darken(sun.color, 40));
+  sunGrad.addColorStop(1, darken(sun.color, 80));
+  ctx.beginPath(); ctx.arc(sun.x, sun.y, r * pulse, 0, Math.PI*2);
+  ctx.fillStyle = sunGrad;
+  ctx.shadowColor = sun.color; ctx.shadowBlur = 30;
+  ctx.fill(); ctx.shadowBlur = 0;
+}
+
+function drawDysonSphere(sun, t) {
+  const r = sun.radius;
+  const col = sun.dysonOwner === 'player' ? '#00ff88' : '#ff3355';
+  const rot = t * 0.0008;
+  // Outer ring
+  for (let i = 0; i < 3; i++) {
+    const ringR = r * (3.0 + i * 0.6);
+    ctx.beginPath();
+    ctx.arc(sun.x, sun.y, ringR, 0, Math.PI*2);
+    ctx.strokeStyle = col + (i === 0 ? 'cc' : '55');
+    ctx.lineWidth = i === 0 ? 3 : 1.5;
+    ctx.setLineDash(i === 0 ? [] : [8, 8]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  // Collector panels (rotating segments)
+  const numPanels = 8;
+  for (let i = 0; i < numPanels; i++) {
+    const angle = rot + (i / numPanels) * Math.PI * 2;
+    const pr = r * 3.2;
+    const px = sun.x + Math.cos(angle) * pr;
+    const py = sun.y + Math.sin(angle) * pr;
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(angle + Math.PI/2);
+    ctx.fillStyle = col + '88';
+    ctx.fillRect(-8, -3, 16, 6);
+    ctx.restore();
+  }
+  // Simple glow
+  const g = ctx.createRadialGradient(sun.x,sun.y,r,sun.x,sun.y,r*4);
+  g.addColorStop(0, hexToRgba(col, 0.12));
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(sun.x,sun.y,r*4,0,Math.PI*2); ctx.fill();
+}
+
+function drawBlackhole(sun, t) {
+  const r = sun.radius;
+  // Accretion disk
+  for (let i = 5; i > 0; i--) {
+    const diskR = r * (1.5 + i * 0.7);
+    const alpha = 0.25 / i;
+    // Color transitions from blue-white outer to orange inner
+    const hue = 200 - i * 25;
+    ctx.beginPath();
+    ctx.arc(sun.x, sun.y, diskR, 0, Math.PI*2);
+    ctx.strokeStyle = `hsla(${hue},90%,70%,${alpha})`;
+    ctx.lineWidth = r * 0.3 * (1 / i);
+    ctx.stroke();
+  }
+  // Rotating accretion material
+  const rot = t * 0.003;
+  for (let i = 0; i < 60; i++) {
+    const angle = rot * (1 + i * 0.01) + (i / 60) * Math.PI * 2;
+    const pr = r * (1.6 + (i % 5) * 0.3);
+    const px = sun.x + Math.cos(angle) * pr;
+    const py = sun.y + Math.sin(angle) * pr;
+    const alpha = 0.4 + 0.3 * Math.sin(i * 0.5 + t * 0.005);
+    ctx.beginPath();
+    ctx.arc(px, py, rnd(1, 3), 0, Math.PI*2);
+    ctx.fillStyle = `rgba(255,${100+i*2},50,${alpha})`;
+    ctx.fill();
+  }
+  // Event horizon glow
+  const grd = ctx.createRadialGradient(sun.x,sun.y,0,sun.x,sun.y,r*1.5);
+  grd.addColorStop(0,'rgba(0,0,0,1)');
+  grd.addColorStop(0.7,'rgba(5,0,15,0.9)');
+  grd.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath(); ctx.arc(sun.x,sun.y,r*1.5,0,Math.PI*2);
+  ctx.fillStyle = grd; ctx.fill();
+  // Core black
+  ctx.beginPath(); ctx.arc(sun.x,sun.y,r,0,Math.PI*2);
+  ctx.fillStyle = '#000'; ctx.fill();
+  // Gravitational lensing ring
+  ctx.beginPath(); ctx.arc(sun.x,sun.y,r*1.2,0,Math.PI*2);
+  ctx.strokeStyle = 'rgba(100,80,255,0.6)';
+  ctx.lineWidth = 4; ctx.stroke();
+  // Label
+  ctx.font = `bold 11px 'Orbitron'`;
+  ctx.fillStyle = 'rgba(180,100,255,0.7)'; ctx.textAlign = 'center';
+  ctx.fillText('BLACK HOLE', sun.x, sun.y + r*1.8 + 14);
+}
+
+function hexToRgba(hex, a) {
+  if (hex.startsWith('#')) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+  return `rgba(200,200,200,${a})`;
+}
+
+// ============================================================
+// DRAW — WARP GATES (inter-system connections)
+// ============================================================
+function drawWarpGates(t) {
+  applyCamera();
+  G.warpGates.forEach(wg => {
+    const bothVisible = inView(wg.xA, wg.yA, 50) || inView(wg.xB, wg.yB, 50);
+    if (!bothVisible) return;
+    const pulse = 0.5 + 0.5 * Math.sin(t * 0.004 + wg.phase);
+
+    [{ x: wg.xA, y: wg.yA }, { x: wg.xB, y: wg.yB }].forEach((pt, idx) => {
+      if (!inView(pt.x, pt.y, 60)) return;
+      // Outer animated ring
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, 30 + 8 * pulse, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(123,47,255,${0.5+0.3*pulse})`;
+      ctx.lineWidth = 2; ctx.setLineDash([6,6]); ctx.stroke(); ctx.setLineDash([]);
+      // Inner glow
+      const g = ctx.createRadialGradient(pt.x,pt.y,0,pt.x,pt.y,28);
+      g.addColorStop(0,`rgba(180,100,255,${0.55*pulse})`); g.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(pt.x,pt.y,28,0,Math.PI*2); ctx.fill();
+      // Core
+      ctx.beginPath(); ctx.arc(pt.x,pt.y,9,0,Math.PI*2);
+      ctx.fillStyle = '#b57fff'; ctx.shadowColor='#7b2fff'; ctx.shadowBlur=16; ctx.fill(); ctx.shadowBlur=0;
+      // Label
+      ctx.font = `bold 9px 'Orbitron'`; ctx.fillStyle = '#b57fff'; ctx.textAlign = 'center';
+      ctx.fillText('WARP', pt.x, pt.y + 44);
+      const dest = idx === 0 ? wg.sysB.name : wg.sysA.name;
+      ctx.font = `7px 'Orbitron'`;
+      const shortDest = dest.split(' ')[0];
+      ctx.fillText(shortDest, pt.x, pt.y + 54);
+    });
+  });
+  restoreCamera();
+}
+
+// ============================================================
+// DRAW — PLANETS
+// ============================================================
+function drawPlanets(t) {
+  applyCamera();
+  G.planets.forEach(pl => {
+    if (!G.loadedChunks.has(pl.sysIdx)) return;
+    if (!inView(pl.x, pl.y, pl.radius + 40)) return;
+
+    const oc = ownerColor(pl.owner);
+    pl.angle += 0.002 * G.speed;
+
+    // Glow
+    const grd = ctx.createRadialGradient(pl.x,pl.y,0,pl.x,pl.y,pl.radius*2.5);
+    grd.addColorStop(0, oc+'22'); grd.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(pl.x,pl.y,pl.radius*2.5,0,Math.PI*2); ctx.fill();
+
+    // Body
+    const pGrd = ctx.createRadialGradient(pl.x-pl.radius*0.3,pl.y-pl.radius*0.3,0,pl.x,pl.y,pl.radius);
+    pGrd.addColorStop(0,lighten(pl.color,60)); pGrd.addColorStop(0.6,pl.color); pGrd.addColorStop(1,darken(pl.color,60));
+    ctx.beginPath(); ctx.arc(pl.x,pl.y,pl.radius,0,Math.PI*2);
+    ctx.fillStyle = pGrd; ctx.fill();
+    // Atmosphere
+    ctx.beginPath(); ctx.arc(pl.x,pl.y,pl.radius+2,0,Math.PI*2);
+    ctx.strokeStyle = oc+'88'; ctx.lineWidth = 2; ctx.stroke();
+    // Orbit ring
+    if (pl.owner !== 'neutral') {
+      ctx.beginPath(); ctx.arc(pl.x,pl.y,pl.radius+14,0,Math.PI*2);
+      ctx.strokeStyle = oc+'30'; ctx.lineWidth=1; ctx.setLineDash([4,8]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    // Selection
+    if (G.selectedObj === pl) {
+      ctx.beginPath(); ctx.arc(pl.x,pl.y,pl.radius+22,0,Math.PI*2);
+      ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
+      ctx.globalAlpha=0.6+0.4*Math.sin(t*0.004); ctx.stroke(); ctx.globalAlpha=1;
+    }
+    drawBuildingIcons(pl, t);
+    // Name
+    ctx.font=`600 11px 'Rajdhani'`; ctx.fillStyle='#fff'; ctx.textAlign='center';
+    ctx.fillText(pl.name, pl.x, pl.y+pl.radius+16);
+    // Owner dot
+    ctx.beginPath(); ctx.arc(pl.x,pl.y-pl.radius-8,4,0,Math.PI*2);
+    ctx.fillStyle=oc; ctx.fill();
+    // No-power warning
+    if (pl.owner==='player' && !hasPower(pl)) {
+      ctx.font=`bold 11px 'Rajdhani'`; ctx.fillStyle='#ff9900'; ctx.textAlign='center';
+      ctx.fillText('⚡ NO POWER', pl.x, pl.y+pl.radius+28);
+    }
+    // Defense stations
+    pl.defenseStations.forEach(st => drawStation(st, t));
+    // Orbiting fleet indicators
+    pl.orbitingFleets.forEach((fl, idx) => {
+      const a = t*0.001 + idx*(Math.PI*2/Math.max(pl.orbitingFleets.length,1));
+      const r = pl.radius+32+idx*10;
+      const fx = pl.x+Math.cos(a)*r, fy = pl.y+Math.sin(a)*r;
+      fl.x = fx; fl.y = fy;
+      // Draw tiny triangle in fleet owner color
+      const foc = ownerColor(fl.owner);
+      ctx.save(); ctx.translate(fx, fy); ctx.rotate(a + Math.PI/2);
+      ctx.beginPath(); ctx.moveTo(0,-5); ctx.lineTo(3,4); ctx.lineTo(-3,4); ctx.closePath();
+      ctx.fillStyle = foc; ctx.fill();
+      ctx.restore();
+      const cnt = shipCount(fl);
+      ctx.font=`500 9px 'Rajdhani'`; ctx.fillStyle='#fff'; ctx.fillText(cnt, fx+6, fy+3);
+    });
+    // Build queue progress
+    if (pl.buildQueue.length>0 && pl.owner==='player') {
+      const bq = pl.buildQueue[0], prog = bq.elapsed/bq.total;
+      ctx.beginPath(); ctx.arc(pl.x,pl.y,pl.radius+5,-Math.PI/2,-Math.PI/2+prog*Math.PI*2);
+      ctx.strokeStyle='#00cfff'; ctx.lineWidth=2; ctx.stroke();
+    }
+    if (pl.buildingQueue && pl.buildingQueue.length>0 && pl.owner==='player') {
+      const bq = pl.buildingQueue[0], prog = bq.elapsed/bq.total;
+      ctx.beginPath(); ctx.arc(pl.x,pl.y,pl.radius+8,-Math.PI/2,-Math.PI/2+prog*Math.PI*2);
+      ctx.strokeStyle='#ffe066'; ctx.lineWidth=2; ctx.stroke();
+    }
+  });
+  restoreCamera();
+}
+
+function drawBuildingIcons(pl, t) {
+  if (!pl.buildings) return;
+  const icons = [];
+  if (pl.buildings.MetalMine) icons.push({icon:'⛏',col:'#a0c4ff'});
+  if (pl.buildings.CrystalMine) icons.push({icon:'◈',col:'#da77ff'});
+  if (pl.buildings.PowerPlant) icons.push({icon:'⚡',col:'#ffe066'});
+  if (pl.buildings.Shipyard) icons.push({icon:'⚙',col:'#00cfff'});
+  if (pl.warpGate) icons.push({icon:'⬡',col:'#b57fff'});
+  icons.forEach((ic, i) => {
+    ctx.font=`bold 10px sans-serif`; ctx.fillStyle=ic.col; ctx.textAlign='center';
+    const angle = (i/icons.length)*Math.PI*2 - Math.PI/2;
+    ctx.fillText(ic.icon, pl.x+Math.cos(angle)*(pl.radius+5), pl.y+Math.sin(angle)*(pl.radius+5)+4);
+  });
+}
+
+function drawStation(st, t) {
+  st.angle += st.orbitSpeed * G.speed;
+  st.x = st.parentX + Math.cos(st.angle)*st.orbitR;
+  st.y = st.parentY + Math.sin(st.angle)*st.orbitR;
+  ctx.save(); ctx.translate(st.x,st.y); ctx.rotate(st.angle*2);
+  ctx.beginPath();
+  for (let i=0;i<4;i++) { const a=i*Math.PI/2,r=8; ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r); ctx.lineTo(Math.cos(a+Math.PI/4)*r*0.5,Math.sin(a+Math.PI/4)*r*0.5); }
+  ctx.strokeStyle=ownerColor(st.owner); ctx.lineWidth=1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0,5,0,Math.PI*2); ctx.fillStyle=ownerColor(st.owner)+'99'; ctx.fill();
+  ctx.restore();
+  const hpFrac=st.hp/st.maxHp;
+  ctx.fillStyle='#333'; ctx.fillRect(st.x-10,st.y+10,20,3);
+  ctx.fillStyle=hpFrac>0.5?'#00ff88':'#ff9900'; ctx.fillRect(st.x-10,st.y+10,20*hpFrac,3);
+  if (st.laserAlpha>0&&st.laserTarget) {
+    ctx.beginPath(); ctx.moveTo(st.x,st.y); ctx.lineTo(st.laserTarget.x,st.laserTarget.y);
+    ctx.strokeStyle=`rgba(255,50,50,${st.laserAlpha})`; ctx.lineWidth=2; ctx.stroke();
+    st.laserAlpha-=0.05*G.speed;
+  }
+}
+
+// ============================================================
+// DRAW — ASTEROIDS
+// ============================================================
+function drawAsteroids(t) {
+  applyCamera();
+  G.asteroids.forEach(ast => {
+    if (!G.loadedChunks.has(ast.sysIdx)) return;
+    if (!inView(ast.x, ast.y, ast.radius+20)) return;
+    ast.angle += 0.004 * G.speed;
+    ctx.save(); ctx.translate(ast.x,ast.y); ctx.rotate(ast.angle);
+    ctx.beginPath();
+    for (let i=0;i<8;i++) {
+      const a=(i/8)*Math.PI*2;
+      const fuzz=ast.radius*(0.8+0.2*Math.sin(i*3.7));
+      if (i===0) ctx.moveTo(Math.cos(a)*fuzz,Math.sin(a)*fuzz);
+      else ctx.lineTo(Math.cos(a)*fuzz,Math.sin(a)*fuzz);
+    }
+    ctx.closePath(); ctx.fillStyle='#3d3d4e'; ctx.fill();
+    ctx.strokeStyle='#7070aa'; ctx.lineWidth=1; ctx.stroke();
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(ast.x,ast.y-ast.radius-8,4,0,Math.PI*2);
+    ctx.fillStyle=ownerColor(ast.owner); ctx.fill();
+    if (ast.isMining) {
+      ctx.beginPath(); ctx.arc(ast.x,ast.y,ast.radius+10+4*Math.sin(t*0.01),0,Math.PI*2);
+      ctx.strokeStyle='#a0c4ff66'; ctx.lineWidth=2; ctx.stroke();
+    }
+    ctx.font=`500 10px 'Rajdhani'`; ctx.fillStyle='#aaa'; ctx.textAlign='center';
+    ctx.fillText(ast.name, ast.x, ast.y+ast.radius+14);
+    if (G.selectedObj===ast) {
+      ctx.beginPath(); ctx.arc(ast.x,ast.y,ast.radius+18,0,Math.PI*2);
+      ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
+      ctx.globalAlpha=0.6+0.4*Math.sin(t*0.004); ctx.stroke(); ctx.globalAlpha=1;
+    }
+  });
+  restoreCamera();
+}
+
+// ============================================================
+// DRAW — FLEETS — triangle ships with trails based on ship type
+// ============================================================
+function drawFleets(t) {
+  applyCamera();
+  G.fleets.forEach(fl => {
+    if (!fl.traveling) return;
+    if (!inView(fl.x, fl.y, 50)) return;
+
+    const oc = ownerColor(fl.owner);
+    const dx = fl.targetX - fl.startX;
+    const dy = fl.targetY - fl.startY;
+    const angle = Math.atan2(dy, dx);
+    const cnt = shipCount(fl);
+
+    // Determine dominant ship type for visual style
+    let dominantType = 'Fighter';
+    let maxCount = 0;
+    Object.entries(fl.ships).forEach(([k, v]) => { if (v > maxCount) { maxCount = v; dominantType = k; } });
+    const typeStats = SHIP_TYPES[dominantType] || SHIP_TYPES['Fighter'];
+    const baseSize = typeStats.size * (0.9 + Math.min(cnt, 20) / 40);
+
+    // Record trail
+    fl.trail.push({ x: fl.x, y: fl.y, a: angle });
+    const trailMax = typeStats.trailLen;
+    if (fl.trail.length > trailMax) fl.trail.shift();
+
+    // Draw trail — color and width depend on ship type
+    for (let i = 0; i < fl.trail.length - 1; i++) {
+      const frac = i / fl.trail.length;
+      const alpha = frac * 0.55;
+      const w = frac * (baseSize * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(fl.trail[i].x, fl.trail[i].y);
+      ctx.lineTo(fl.trail[i+1].x, fl.trail[i+1].y);
+      ctx.strokeStyle = typeStats.trailColor + alpha + ')';
+      ctx.lineWidth = w;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+
+    // Draw mothership triangle (shape based on type)
+    ctx.save();
+    ctx.translate(fl.x, fl.y);
+    ctx.rotate(angle);
+    ctx.shadowColor = oc;
+    ctx.shadowBlur = 10;
+
+    drawShipShape(ctx, dominantType, baseSize, oc, t, fl.x);
+
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // Escort triangles in V formation (if multiple ships)
+    if (cnt > 1) {
+      const escorts = Math.min(cnt - 1, 10);
+      const rows = Math.ceil(escorts / 2);
+      let drawn = 0;
+      ctx.save();
+      ctx.translate(fl.x, fl.y);
+      ctx.rotate(angle);
+      for (let row = 0; row < rows && drawn < escorts; row++) {
+        const bx = -baseSize * 2 - row * (baseSize * 1.4);
+        const sp = baseSize * 0.9 + row * (baseSize * 0.5);
+        if (drawn < escorts) { drawEscortTriangle(ctx, bx, -sp, oc, baseSize * 0.6, t, fl.x + row); drawn++; }
+        if (drawn < escorts) { drawEscortTriangle(ctx, bx, sp, oc, baseSize * 0.6, t, fl.x + row + 100); drawn++; }
+      }
+      ctx.restore();
+    }
+
+    // Count label
+    ctx.font = `bold 10px 'Orbitron'`; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+    ctx.shadowColor = oc; ctx.shadowBlur = 6;
+    const lx = fl.x - Math.sin(angle) * (baseSize + 8);
+    const ly = fl.y + Math.cos(angle) * (baseSize + 8);
+    ctx.fillText(cnt, lx, ly);
+    ctx.shadowBlur = 0;
+  });
+  restoreCamera();
+}
+
+function drawShipShape(ctx, type, size, col, t, seed) {
+  const pulse = 0.75 + 0.25 * Math.sin(t * 0.015 + seed * 0.001);
+  const hullGrad = ctx.createLinearGradient(-size, 0, size, 0);
+  hullGrad.addColorStop(0, darken(col, 60));
+  hullGrad.addColorStop(0.5, col + 'cc');
+  hullGrad.addColorStop(1, lighten(col, 40));
+
+  ctx.beginPath();
+  switch (type) {
+    case 'Scout':
+      // Slim needle
+      ctx.moveTo(size, 0);
+      ctx.lineTo(-size*0.4, -size*0.4);
+      ctx.lineTo(-size*0.7, 0);
+      ctx.lineTo(-size*0.4, size*0.4);
+      break;
+    case 'Miner':
+      // Boxy with arms
+      ctx.moveTo(size*0.8, 0);
+      ctx.lineTo(-size*0.2, -size*0.6);
+      ctx.lineTo(-size*0.8, -size*0.3);
+      ctx.lineTo(-size*0.8, size*0.3);
+      ctx.lineTo(-size*0.2, size*0.6);
+      break;
+    case 'Destroyer':
+      // Wide swept wings
+      ctx.moveTo(size, 0);
+      ctx.lineTo(-size*0.3, -size*0.8);
+      ctx.lineTo(-size*0.5, -size*0.3);
+      ctx.lineTo(-size*0.8, -size*0.15);
+      ctx.lineTo(-size*0.6, 0);
+      ctx.lineTo(-size*0.8, size*0.15);
+      ctx.lineTo(-size*0.5, size*0.3);
+      ctx.lineTo(-size*0.3, size*0.8);
+      break;
+    case 'Dreadnought':
+      // Heavy fortress shape
+      ctx.moveTo(size, 0);
+      ctx.lineTo(size*0.3, -size*0.5);
+      ctx.lineTo(-size*0.2, -size*0.9);
+      ctx.lineTo(-size*0.6, -size*0.6);
+      ctx.lineTo(-size*0.9, -size*0.25);
+      ctx.lineTo(-size, 0);
+      ctx.lineTo(-size*0.9, size*0.25);
+      ctx.lineTo(-size*0.6, size*0.6);
+      ctx.lineTo(-size*0.2, size*0.9);
+      ctx.lineTo(size*0.3, size*0.5);
+      break;
+    default: // Fighter
+      ctx.moveTo(size, 0);
+      ctx.lineTo(-size*0.5, -size*0.6);
+      ctx.lineTo(-size*0.3, -size*0.2);
+      ctx.lineTo(-size*0.7, -size*0.25);
+      ctx.lineTo(-size*0.6, 0);
+      ctx.lineTo(-size*0.7, size*0.25);
+      ctx.lineTo(-size*0.3, size*0.2);
+      ctx.lineTo(-size*0.5, size*0.6);
+  }
+  ctx.closePath();
+  ctx.fillStyle = hullGrad;
+  ctx.fill();
+  ctx.strokeStyle = col; ctx.lineWidth = 0.8; ctx.stroke();
+
+  // Cockpit
+  ctx.beginPath();
+  ctx.ellipse(size*0.4, 0, size*0.28, size*0.18, 0, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(200,240,255,0.7)';
+  ctx.shadowColor='#00cfff'; ctx.shadowBlur=5; ctx.fill(); ctx.shadowBlur=0;
+
+  // Engine glow
+  const eg = ctx.createRadialGradient(-size*0.65,0,0,-size*0.65,0,size*0.5);
+  eg.addColorStop(0,`rgba(150,220,255,${pulse*0.9})`);
+  eg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=eg; ctx.beginPath(); ctx.arc(-size*0.65,0,size*0.5,0,Math.PI*2); ctx.fill();
+}
+
+function drawEscortTriangle(ctx, ex, ey, col, size, t, seed) {
+  const pulse = 0.6 + 0.4 * Math.sin(t*0.012 + seed*0.1);
+  ctx.save(); ctx.translate(ex, ey);
+  ctx.beginPath();
+  ctx.moveTo(size, 0);
+  ctx.lineTo(-size*0.7, -size*0.55);
+  ctx.lineTo(-size*0.4, 0);
+  ctx.lineTo(-size*0.7, size*0.55);
+  ctx.closePath();
+  ctx.fillStyle = col+'aa';
+  ctx.shadowColor=col; ctx.shadowBlur=4; ctx.fill(); ctx.shadowBlur=0;
+  // micro engine
+  const mg = ctx.createRadialGradient(-size*0.5,0,0,-size*0.5,0,size*0.45);
+  mg.addColorStop(0,`rgba(150,220,255,${pulse*0.7})`); mg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=mg; ctx.beginPath(); ctx.arc(-size*0.5,0,size*0.45,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+// ============================================================
+// DRAW — MISSILES
+// ============================================================
+function drawMissiles(t) {
+  applyCamera();
+  G.missiles.forEach(ms => {
+    if (!inView(ms.x, ms.y, 20)) return;
+    ms.trail = ms.trail || [];
+    ms.trail.push({x:ms.x,y:ms.y});
+    if (ms.trail.length>16) ms.trail.shift();
+    for (let i=0;i<ms.trail.length-1;i++) {
+      const a=(i/ms.trail.length)*0.7;
+      ctx.beginPath(); ctx.moveTo(ms.trail[i].x,ms.trail[i].y); ctx.lineTo(ms.trail[i+1].x,ms.trail[i+1].y);
+      ctx.strokeStyle=`rgba(255,80,0,${a})`; ctx.lineWidth=2; ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(ms.x,ms.y,4,0,Math.PI*2);
+    ctx.fillStyle='#ff5500'; ctx.shadowColor='#ff3300'; ctx.shadowBlur=10; ctx.fill(); ctx.shadowBlur=0;
+  });
+  restoreCamera();
+}
+
+// ============================================================
+// EXPLOSIONS
+// ============================================================
+const explosions = [];
+function spawnExplosion(x, y) { explosions.push({x,y,r:5,alpha:1}); }
+function drawExplosions() {
+  applyCamera();
+  for (let i=explosions.length-1;i>=0;i--) {
+    const ex=explosions[i];
+    ex.r+=3*G.speed; ex.alpha-=0.04*G.speed;
+    if (ex.alpha<=0) { explosions.splice(i,1); continue; }
+    const grd=ctx.createRadialGradient(ex.x,ex.y,0,ex.x,ex.y,ex.r);
+    grd.addColorStop(0,`rgba(255,200,50,${ex.alpha})`);
+    grd.addColorStop(0.5,`rgba(255,80,0,${ex.alpha*0.6})`);
+    grd.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.beginPath(); ctx.arc(ex.x,ex.y,ex.r,0,Math.PI*2);
+    ctx.fillStyle=grd; ctx.fill();
+  }
+  restoreCamera();
+}
+
+// ============================================================
+// MINIMAP — shows full galaxy
+// ============================================================
+function drawMinimap() {
+  const mw=mmCanvas.width, mh=mmCanvas.height;
+  mmCtx.fillStyle='#020510'; mmCtx.fillRect(0,0,mw,mh);
+  mmCtx.strokeStyle='rgba(123,47,255,0.3)'; mmCtx.strokeRect(0,0,mw,mh);
+
+  const sx=mw/GALAXY_W, sy=mh/GALAXY_H;
+
+  // System borders
+  SYSTEMS.forEach(sys => {
+    mmCtx.strokeStyle='rgba(100,60,200,0.3)'; mmCtx.lineWidth=0.5;
+    mmCtx.strokeRect(sys.ox*sx, sys.oy*sy, SYSTEM_W*sx, SYSTEM_H*sy);
+    // Sun dot
+    const sc = sys.isBlackhole ? '#6622ff' : '#ffee44';
+    mmCtx.beginPath(); mmCtx.arc(sys.sun.x*sx, sys.sun.y*sy, 3, 0, Math.PI*2);
+    mmCtx.fillStyle=sc; mmCtx.fill();
+  });
+
+  // Warp gates
+  G.warpGates.forEach(wg => {
+    mmCtx.beginPath(); mmCtx.moveTo(wg.xA*sx,wg.yA*sy); mmCtx.lineTo(wg.xB*sx,wg.yB*sy);
+    mmCtx.strokeStyle='rgba(180,100,255,0.3)'; mmCtx.lineWidth=0.5; mmCtx.stroke();
+  });
+
+  // Planets
+  G.planets.forEach(pl => {
+    mmCtx.beginPath(); mmCtx.arc(pl.x*sx,pl.y*sy,1.8,0,Math.PI*2);
+    mmCtx.fillStyle=ownerColor(pl.owner); mmCtx.fill();
+  });
+  // Fleets
+  G.fleets.filter(fl=>fl.traveling).forEach(fl => {
+    mmCtx.beginPath(); mmCtx.arc(fl.x*sx,fl.y*sy,1,0,Math.PI*2);
+    mmCtx.fillStyle=ownerColor(fl.owner); mmCtx.fill();
+  });
+
+  // Viewport
+  const vx=CAM.x*sx, vy=CAM.y*sy;
+  const vw=(canvas.width/CAM.zoom)*sx, vh=(canvas.height/CAM.zoom)*sy;
+  mmCtx.strokeStyle='rgba(0,207,255,0.7)'; mmCtx.lineWidth=1;
+  mmCtx.strokeRect(vx,vy,vw,vh);
+}
+
+// ============================================================
+// UPDATE — FLEETS (with inter-system warp support)
+// ============================================================
+function updateFleets(dt) {
+  G.fleets.forEach(fl => {
+    if (!fl.traveling) return;
+
+    // Check if warping through a gate
+    if (fl.warpingTo) {
+      fl.warpTimer = (fl.warpTimer || 0) - dt * G.speed;
+      if (fl.warpTimer <= 0) {
+        // Arrive at destination system gate
+        fl.x = fl.warpingTo.xDest;
+        fl.y = fl.warpingTo.yDest;
+        fl.startX = fl.x; fl.startY = fl.y;
+        fl.trail = [];
+        fl.warpingTo = null;
+        spawnExplosion(fl.x, fl.y);
+        if (fl.owner === 'player') showNotif(`Fleet warped to ${fl.warpingTo2 || 'new system'}!`, '#b57fff');
+      }
+      return;
+    }
+
+    const spd = 1.5 * G.speed * dt * 0.08;
+    const dx = fl.targetX - fl.x;
+    const dy = fl.targetY - fl.y;
+    const d = Math.hypot(dx, dy);
+
+    // Check proximity to a warp gate (for player or enemy fleets)
+    const nearGate = G.warpGates.find(wg => {
+      const distA = Math.hypot(fl.x - wg.xA, fl.y - wg.yA);
+      const distB = Math.hypot(fl.x - wg.xB, fl.y - wg.yB);
+      return (distA < 35 || distB < 35);
+    });
+    if (nearGate && fl.warpTarget) {
+      // Engage warp
+      const isOnA = Math.hypot(fl.x - nearGate.xA, fl.y - nearGate.yA) < 35;
+      const destX = isOnA ? nearGate.xB : nearGate.xA;
+      const destY = isOnA ? nearGate.yB : nearGate.yA;
+      fl.warpingTo = { xDest: destX, yDest: destY };
+      fl.warpingTo2 = isOnA ? nearGate.sysB.name : nearGate.sysA.name;
+      fl.warpTimer = 60; // ~1 second warp delay
+      fl.warpTarget = null;
+      spawnExplosion(fl.x, fl.y);
+      return;
+    }
+
+    if (d < 8) {
+      fl.x = fl.targetX; fl.y = fl.targetY;
+      fl.traveling = false; fl.trail = [];
+      arriveFleet(fl);
+    } else {
+      fl.x += (dx/d)*spd; fl.y += (dy/d)*spd;
+    }
+  });
+}
+
+function arriveFleet(fl) {
+  const target = fl.targetObj;
+  if (!target) return;
+  if (target.owner !== fl.owner && target.owner !== 'neutral') {
+    startBattle(fl, target);
+  } else if (target.owner === 'neutral') {
+    target.owner = fl.owner;
+    target.orbitingFleets.push(fl);
+    if (fl.owner==='player') showNotif(`${target.name} captured!`,'#00ff88');
+    else showNotif(`Enemy captured ${target.name}!`,'#ff3355');
+  } else {
+    target.orbitingFleets.push(fl);
+  }
+  G.fleets = G.fleets.filter(f=>f!==fl);
+}
+
+function updateMissiles(dt) {
+  G.missiles = G.missiles.filter(ms => {
+    const dx=ms.targetX-ms.x, dy=ms.targetY-ms.y, d=Math.hypot(dx,dy);
+    const spd=5.5*G.speed*dt*0.08;
+    if (d<12) { missileImpact(ms); spawnExplosion(ms.x,ms.y); return false; }
+    ms.x+=(dx/d)*spd; ms.y+=(dy/d)*spd;
+    return true;
+  });
+}
+
+function missileImpact(ms) {
+  const target=ms.targetObj; if (!target) return;
+  target.defenses=Math.max(0,(target.defenses||0)-60);
+  target.defenseStations=target.defenseStations.filter(st=>{st.hp-=80;return st.hp>0;});
+  target.orbitingFleets.forEach(fl=>{
+    if(fl.owner!==ms.owner){const keys=Object.keys(fl.ships);if(keys.length){const k=keys[0];fl.ships[k]=Math.max(0,fl.ships[k]-2);if(fl.ships[k]<=0)delete fl.ships[k];}}
+  });
+  if(ms.owner==='player')showNotif('Missile impact!','#ff9900');
+}
+
+function updateDefenseStations(dt) {
+  [...G.planets,...G.asteroids].forEach(obj=>{
+    obj.defenseStations.forEach(st=>{
+      let nearest=null,nearD=220;
+      G.fleets.forEach(fl=>{if(fl.owner!==st.owner){const d=dist(st,fl);if(d<nearD){nearD=d;nearest=fl;}}});
+      if(!nearest) obj.orbitingFleets.forEach(fl=>{if(fl.owner!==st.owner)nearest=fl;});
+      st.fireTimer-=dt*G.speed;
+      if(nearest&&st.fireTimer<=0){
+        st.fireTimer=60; st.laserTarget=nearest; st.laserAlpha=1;
+        const keys=Object.keys(nearest.ships);
+        if(keys.length){const k=keys[Math.floor(Math.random()*keys.length)];nearest.ships[k]--;if(nearest.ships[k]<=0)delete nearest.ships[k];}
+        if(Object.keys(nearest.ships).length===0)G.fleets=G.fleets.filter(f=>f!==nearest);
+      }
+    });
+  });
+}
+
+function updateResources(dt) {
+  if (G.tick % Math.floor(120/G.speed) !== 0) return;
+  let totalMetal=0,totalCrystal=0;
+  G.planets.filter(p=>p.owner==='player').forEach(p=>{
+    const mRate=getPlanetMetalRate(p),cRate=getPlanetCrystalRate(p);
+    G.playerMetal+=mRate; G.playerCrystal+=cRate;
+    p.metal+=mRate; p.crystal+=cRate;
+    totalMetal+=mRate; totalCrystal+=cRate;
+  });
+  G._metalRate=totalMetal; G._crystalRate=totalCrystal;
+}
+
+function updateBuildQueues(dt) {
+  G.planets.forEach(pl=>{
+    if(pl.buildQueue.length){
+      const bq=pl.buildQueue[0]; bq.elapsed+=dt*G.speed;
+      if(bq.elapsed>=bq.total){pl.buildQueue.shift();completeBuild(pl,bq);}
+    }
+    if(pl.buildingQueue&&pl.buildingQueue.length){
+      const bq=pl.buildingQueue[0]; bq.elapsed+=dt*G.speed;
+      if(bq.elapsed>=bq.total){pl.buildingQueue.shift();completeBuilding(pl,bq);}
+    }
+  });
+  // Dyson sphere construction
+  SYSTEMS.forEach(sys=>{
+    const sun=sys.sun;
+    if(sun.dysonBuilding){
+      sun.dysonElapsed+=dt*G.speed;
+      if(sun.dysonElapsed>=DYSON_BUILD_TIME*60){
+        sun.dysonsphere=true; sun.dysonBuilding=false;
+        if(sun.dysonOwner==='player') showNotif(`Dyson Sphere complete around ${sys.name} sun! +${DYSON_POWER_BONUS} energy!`,'#ffd700');
+      }
+    }
+  });
+  // AI Dyson sphere building (if enemy has >8 planets, may start building)
+  SYSTEMS.forEach(sys=>{
+    const sun=sys.sun;
+    if(!sun.dysonsphere&&!sun.dysonBuilding&&!sun.isBlackhole&&G.aiTurn%5===0){
+      const enemyInSys=G.planets.filter(p=>p.owner==='enemy'&&p.sysIdx===sys.idx).length;
+      if(enemyInSys>=3&&Math.random()<0.05){
+        sun.dysonBuilding=true; sun.dysonOwner='enemy'; sun.dysonElapsed=0;
+        showNotif(`Enemy constructing Dyson Sphere in ${sys.name}!`,'#ff3355');
+      }
+    }
+  });
+}
+
+function completeBuild(pl, bq) {
+  if(bq.type==='Missile'){pl.missileStock=(pl.missileStock||0)+1;if(pl.owner==='player'){G.playerMissiles++;showNotif('Missile ready!','#ff9900');}return;}
+  if(bq.type==='DefenseStation'){pl.defenseStations.push(createStation(pl.x,pl.y,pl.owner));if(pl.owner==='player')showNotif('Defense station online!','#7b2fff');return;}
+  const newFleet=createFleet(pl.owner,pl.x,pl.y,{[bq.type]:bq.count});
+  newFleet.sysIdx=pl.sysIdx;
+  pl.orbitingFleets.push(newFleet); G.fleets.push(newFleet);
+  if(pl.owner==='player')showNotif(`${bq.type} built!`,'#00ff88');
+}
+
+function completeBuilding(pl, bq) {
+  if(!pl.buildings)pl.buildings={};
+  pl.buildings[bq.type]=(pl.buildings[bq.type]||0)+1;
+  if(bq.type==='Shipyard')pl.shipyard=true;
+  if(pl.owner==='player')showNotif(`${BUILDINGS[bq.type].name} built on ${pl.name}!`,'#ffe066');
+}
+
+// ============================================================
+// MINING
+// ============================================================
+function instantMine(asteroid) {
+  const metal=Math.min(asteroid.metal,120),crystal=Math.min(asteroid.crystal,60);
+  asteroid.metal-=metal; asteroid.crystal-=crystal;
+  G.playerMetal+=metal; G.playerCrystal+=crystal;
+  showNotif(`Mined: +${Math.floor(metal)} Metal, +${Math.floor(crystal)} Crystal`,'#a0c4ff');
+  if(asteroid.metal<=0&&asteroid.crystal<=0)showNotif(`${asteroid.name} depleted!`,'#ffcc00');
+}
+
+// ============================================================
+// BATTLE
+// ============================================================
+function startBattle(attackFleet, target) {
+  const log=[];
+  function buildPool(ships){const pool={};Object.entries(ships).forEach(([k,v])=>{const stat=SHIP_TYPES[k];pool[k]={count:v,hp:v*(stat?stat.hp:60),maxHpEach:stat?stat.hp:60};});return pool;}
+  function poolToShips(pool){const out={};Object.entries(pool).forEach(([k,d])=>{if(d.count>0)out[k]=d.count;});return out;}
+  function poolTotal(pool){return Object.values(pool).reduce((s,d)=>s+d.count,0);}
+  function calcDPS(ap,dp){const dv=Object.entries(dp).map(([k])=>SHIP_TYPES[k]?.def||8);const avg=dv.length?dv.reduce((a,b)=>a+b,0)/dv.length:8;return Object.entries(ap).reduce((sum,[k,d])=>{const stat=SHIP_TYPES[k];return sum+Math.max(1,(stat?stat.atk:15)-avg*0.4)*d.count;},0);}
+  function applyDmg(pool,dmg){let rem=dmg;const keys=Object.keys(pool).sort((a,b)=>(pool[a].hp/pool[a].count)-(pool[b].hp/pool[b].count));for(const k of keys){if(rem<=0)break;const d=pool[k];if(d.count<=0)continue;const taken=Math.min(rem,d.hp);d.hp-=taken;rem-=taken;d.count=Math.max(0,Math.ceil(d.hp/d.maxHpEach));if(d.count<=0){d.hp=0;delete pool[k];}}}
+
+  let playerPool={},enemyPool={};
+  if(attackFleet.owner==='player'){
+    playerPool=buildPool(attackFleet.ships);
+    const es={};
+    target.orbitingFleets.filter(f=>f.owner==='enemy').forEach(fl=>Object.entries(fl.ships).forEach(([k,v])=>es[k]=(es[k]||0)+v));
+    const dc=Math.ceil((target.defenses||0)/20);
+    if(dc>0)es['Defense']=dc;
+    enemyPool=buildPool(es);
+  } else {
+    enemyPool=buildPool(attackFleet.ships);
+    const ps={};
+    target.orbitingFleets.filter(f=>f.owner==='player').forEach(fl=>Object.entries(fl.ships).forEach(([k,v])=>ps[k]=(ps[k]||0)+v));
+    const dc=Math.ceil((target.defenses||0)/20);
+    if(dc>0)ps['Defense']=dc;
+    playerPool=buildPool(ps);
+  }
+  let round=0;
+  while(round<30&&poolTotal(playerPool)>0&&poolTotal(enemyPool)>0){
+    const pDPS=calcDPS(playerPool,enemyPool),eDPS=calcDPS(enemyPool,playerPool);
+    applyDmg(playerPool,eDPS*1.5); applyDmg(enemyPool,pDPS*1.5);
+    log.push(`R${round+1}: P${Math.floor(pDPS)} vs E${Math.floor(eDPS)}`);
+    round++;
+  }
+  const playerWon=poolTotal(playerPool)>0;
+  showBattleOverlay(poolToShips(playerPool),poolToShips(enemyPool),log,playerWon);
+  if(playerWon){
+    target.owner=attackFleet.owner; target.defenses=0;
+    target.orbitingFleets=target.orbitingFleets.filter(f=>f.owner===attackFleet.owner);
+    attackFleet.ships=poolToShips(playerPool); delete attackFleet.ships['Defense'];
+    target.orbitingFleets.push(attackFleet);
+    if(attackFleet.owner==='player')showNotif(`${target.name} conquered!`,'#00ff88');
+    else showNotif(`Enemy took ${target.name}!`,'#ff3355');
+  } else {
+    target.defenses=Math.max(0,target.defenses-30);
+    showNotif('Attack repelled!','#ffcc00');
+  }
+  G.fleets=G.fleets.filter(f=>f!==attackFleet);
+}
+
+function showBattleOverlay(ps,es,log,won){
+  const o=document.getElementById('battle-overlay');
+  document.getElementById('battle-player-ships').innerHTML=Object.entries(ps).map(([k,v])=>`<div class="queue-item"><span>${SHIP_TYPES[k]?.color?'◈':''} ${k}</span><span>${v}</span></div>`).join('');
+  document.getElementById('battle-enemy-ships').innerHTML=Object.entries(es).map(([k,v])=>`<div class="queue-item"><span>${k}</span><span>${v}</span></div>`).join('');
+  document.getElementById('battle-log').innerHTML=log.slice(-5).join('<br>');
+  const r=document.getElementById('battle-result');
+  r.className='battle-result '+(won?'win':'lose'); r.textContent=won?'— VICTORY —':'— DEFEAT —';
+  o.style.display='block';
+  gsap.fromTo(o,{opacity:0,scale:0.9},{opacity:1,scale:1,duration:0.3});
+  setTimeout(()=>{gsap.to(o,{opacity:0,scale:0.95,duration:0.3,onComplete:()=>o.style.display='none'});},4000);
+}
+
+// ============================================================
+// AI SYSTEM (multi-system aware)
+// ============================================================
+function runAI() {
+  G.aiTurn++;
+  document.getElementById('ai-turn').textContent=G.aiTurn;
+  const eP=G.planets.filter(p=>p.owner==='enemy');
+  const nP=G.planets.filter(p=>p.owner==='neutral');
+  const pP=G.planets.filter(p=>p.owner==='player');
+  if(eP.length<=4)G.aiStrategy='EXPAND';
+  else if(pP.length>eP.length)G.aiStrategy='ATTACK';
+  else G.aiStrategy='DEFEND';
+  document.getElementById('ai-strategy').textContent=G.aiStrategy;
+
+  eP.forEach(ep=>{
+    if(!ep.buildings)ep.buildings={};
+    if(!ep.buildings.PowerPlant&&(!ep.buildingQueue||ep.buildingQueue.length===0))ep.buildings.PowerPlant=1;
+    if(!ep.buildings.MetalMine&&(!ep.buildingQueue||ep.buildingQueue.length===0))ep.buildings.MetalMine=1;
+    if(ep.shipyard&&ep.buildQueue.length<2){
+      const type=Math.random()>0.4?'Fighter':'Destroyer';
+      ep.buildQueue.push({type,count:1,elapsed:0,total:SHIP_TYPES[type].buildTime*60});
+    }
+    const totalFleet=ep.orbitingFleets.reduce((s,fl)=>s+shipCount(fl),0);
+    if(totalFleet<3)return;
+    let target=null;
+    if(G.aiStrategy==='EXPAND')target=nP[0];
+    else if(G.aiStrategy==='ATTACK')target=pP[Math.floor(Math.random()*pP.length)];
+    else{const weak=eP.find(p=>p!==ep&&p.orbitingFleets.length===0);target=weak||pP[0];}
+    if(!target)return;
+    const fl=ep.orbitingFleets.shift(); if(!fl)return;
+    fl.traveling=true; fl.startX=ep.x; fl.startY=ep.y;
+    fl.x=ep.x; fl.y=ep.y; fl.targetX=target.x; fl.targetY=target.y;
+    fl.targetObj=target; fl.trail=[]; fl.sysIdx=ep.sysIdx;
+    G.fleets.push(fl);
+  });
+}
+
+// ============================================================
+// HUD
+// ============================================================
+function updateHUD() {
+  document.getElementById('stat-planets').textContent=G.planets.filter(p=>p.owner==='player').length;
+  document.getElementById('stat-fleets').textContent=G.fleets.filter(f=>f.owner==='player').length;
+  document.getElementById('stat-stations').textContent=G.planets.filter(p=>p.owner==='player').reduce((s,p)=>s+p.defenseStations.length,0);
+  document.getElementById('stat-dyson').textContent=countPlayerDysonSpheres();
+  G.playerEnergy=getTotalPlayerEnergy();
+  document.getElementById('stat-energy').textContent=G.playerEnergy;
+  document.getElementById('res-metal').textContent=Math.floor(G.playerMetal);
+  document.getElementById('res-crystal').textContent=Math.floor(G.playerCrystal);
+  document.getElementById('res-energy').textContent=G.playerEnergy;
+  document.getElementById('res-missiles').textContent=G.playerMissiles;
+  if(G._metalRate!==undefined){
+    document.getElementById('res-metal-rate').textContent=`+${G._metalRate}/t`;
+    document.getElementById('res-crystal-rate').textContent=`+${G._crystalRate}/t`;
+  }
+  // Current system name
+  const si=getCurrentSystemIdx();
+  const sys=SYSTEMS[si];
+  document.getElementById('stat-system').textContent=sys?sys.name:'—';
+  const ind=document.getElementById('system-indicator');
+  if(ind)ind.textContent=sys?`⬡ ${sys.name}${sys.isBlackhole?' — VOID SYSTEM':''}` :'';
+  const itMetal=document.getElementById('itk-metal'),itCrystal=document.getElementById('itk-crystal'),itEnergy=document.getElementById('itk-energy'),itPlanets=document.getElementById('itk-planets');
+  if(itMetal)itMetal.textContent=Math.floor(G.playerMetal);
+  if(itCrystal)itCrystal.textContent=Math.floor(G.playerCrystal);
+  if(itEnergy)itEnergy.textContent=G.playerEnergy;
+  if(itPlanets)itPlanets.textContent=G.planets.filter(p=>p.owner==='player').length;
+}
+
+// ============================================================
+// INFO PANEL
+// ============================================================
+function renderInfoPanel() {
+  const obj=G.selectedObj;
+  const panel=document.getElementById('info-panel');
+  const content=document.getElementById('info-content');
+  if(!obj){panel.classList.remove('visible');return;}
+  panel.classList.add('visible');
+  const oc=ownerColor(obj.owner);
+  let html=`<h3 style="color:${oc}">${obj.name}</h3><div class="owner-tag" style="color:${oc}">${obj.owner.toUpperCase()}</div>`;
+
+  if(obj.type==='planet'){
+    const mRate=obj.owner==='player'?getPlanetMetalRate(obj):obj.metalRate;
+    const cRate=obj.owner==='player'?getPlanetCrystalRate(obj):obj.crystalRate;
+    const energy=obj.owner==='player'?getPlanetEnergy(obj):0;
+    const sys=SYSTEMS[obj.sysIdx];
+    html+=`<div class="info-section">
+      <h4>PLANET STATS</h4>
+      <div class="info-row"><span class="lbl">System</span><span class="val" style="color:#b57fff">${sys?sys.name:'—'}</span></div>
+      <div class="info-row"><span class="lbl">Population</span><span class="val">${Math.floor(obj.population)}</span></div>
+      <div class="info-row"><span class="lbl">Metal/turn</span><span class="val" style="color:#a0c4ff">+${mRate}</span></div>
+      <div class="info-row"><span class="lbl">Crystal/turn</span><span class="val" style="color:#da77ff">+${cRate}</span></div>
+      <div class="info-row"><span class="lbl">Energy</span><span class="val" style="color:${energy>=0?'#ffe066':'#ff3355'}">${energy>=0?'+':''}${energy}</span></div>
+      <div class="info-row"><span class="lbl">Defenses</span><span class="val">${Math.floor(obj.defenses)}</span></div>
+      <div class="info-row"><span class="lbl">Stations</span><span class="val">${obj.defenseStations.length}</span></div>
+    </div>`;
+    html+=`<div class="info-section"><h4>INFRASTRUCTURE</h4>`;
+    for(const[bKey,bDef] of Object.entries(BUILDINGS)){
+      const level=getBuildingLevel(obj,bKey);
+      html+=`<div class="info-row"><span class="lbl">${bDef.icon} ${bDef.name}</span><span class="val" style="color:${level>0?bDef.color:'var(--dim)'}">${level>0?`Lv${level}`:'—'}</span></div>`;
+    }
+    // Dyson status
+    if(sys&&!sys.isBlackhole){
+      const sun=sys.sun;
+      const hasDyson=sun.dysonsphere;
+      html+=`<div class="info-row"><span class="lbl">☀ Dyson Sphere</span><span class="val" style="color:${hasDyson?(sun.dysonOwner==='player'?'#ffd700':'#ff3355'):'var(--dim)'}">${hasDyson?(sun.dysonOwner==='player'?'✓ Ours':'✗ Enemy'):'—'}</span></div>`;
+    }
+    html+=`</div>`;
+    html+=`<div class="info-section"><h4>ORBITING FLEETS (${obj.orbitingFleets.length})</h4>${obj.orbitingFleets.map(fl=>{const c2=ownerColor(fl.owner);return`<div class="info-row"><span class="lbl" style="color:${c2}">${fl.owner}</span><span class="val">${shipCount(fl)} ships</span></div>`;}).join('')}</div>`;
+
+    if(obj.owner==='player'){
+      html+=`<div class="info-section"><h4>BUILD INFRASTRUCTURE</h4><div>`;
+      for(const[bKey,bDef] of Object.entries(BUILDINGS)){
+        const level=getBuildingLevel(obj,bKey);
+        const inQueue=obj.buildingQueue&&obj.buildingQueue.some(q=>q.type===bKey);
+        const canAfford=G.playerMetal>=bDef.cost.metal&&G.playerCrystal>=bDef.cost.crystal;
+        html+=`<button class="build-btn building-btn ${level>0?'built':''}" ${(!canAfford||inQueue)?'disabled':''} onclick="constructBuilding('${obj.id}','${bKey}')">${bDef.icon} ${bDef.name}${level>0?` Lv${level}`:''}<br><span style="font-size:9px;color:var(--dim)">${bDef.cost.metal}M ${bDef.cost.crystal}C</span></button>`;
+      }
+      const canGate=G.playerMetal>=350&&G.playerCrystal>=250;
+      html+=`<button class="build-btn building-btn ${obj.warpGate?'built':''}" ${(!canGate||obj.warpGate)?'disabled':''} onclick="buildWarpGate('${obj.id}')">⬡ Warp Gate${obj.warpGate?' ✓':''}<br><span style="font-size:9px;color:var(--dim)">350M 250C</span></button>`;
+      // Dyson sphere button
+      const sys2=SYSTEMS[obj.sysIdx];
+      if(sys2&&!sys2.isBlackhole){
+        const sun=sys2.sun;
+        const canDyson=G.playerMetal>=DYSON_COST.metal&&G.playerCrystal>=DYSON_COST.crystal&&!sun.dysonsphere&&!sun.dysonBuilding;
+        html+=`<button class="build-btn dyson-btn ${sun.dysonsphere&&sun.dysonOwner==='player'?'built':''}" ${(!canDyson)?'disabled':''} onclick="buildDysonSphere(${obj.sysIdx})">☀ Dyson Sphere${sun.dysonsphere?' ✓':sun.dysonBuilding?` ${Math.floor(sun.dysonElapsed/(DYSON_BUILD_TIME*60)*100)}%`:''}<br><span style="font-size:9px;color:var(--dim)">${DYSON_COST.metal}M ${DYSON_COST.crystal}C · +${DYSON_POWER_BONUS} Energy</span></button>`;
+      }
+      html+=`</div></div>`;
+      if(obj.buildingQueue&&obj.buildingQueue.length>0){
+        html+=`<div class="info-section"><h4>BUILDING QUEUE</h4>${obj.buildingQueue.map(bq=>{const pct=Math.min(100,Math.floor((bq.elapsed/bq.total)*100));return`<div class="queue-item"><span>${BUILDINGS[bq.type]?.icon||'⚙'} ${BUILDINGS[bq.type]?.name||bq.type}</span><span>${pct}%</span></div><div class="queue-progress"><div class="queue-prog-fill" style="width:${pct}%"></div></div>`;}).join('')}</div>`;
+      }
+      if(hasShipyard(obj)){
+        html+=`<div class="info-section"><h4>BUILD SHIPS ⚙</h4><div>${Object.entries(SHIP_TYPES).filter(([,s])=>s.needsShipyard!==false).map(([name,s])=>{const canAfford=G.playerMetal>=s.cost.metal&&G.playerCrystal>=s.cost.crystal;return`<button class="build-btn" ${!canAfford?'disabled':''} onclick="buildShip('${obj.id}','${name}')">▲ ${name}<br><span style="font-size:9px;color:var(--dim)">${s.cost.metal}M ${s.cost.crystal}C</span></button>`;}).join('')}<button class="build-btn" onclick="buildStation('${obj.id}')" ${G.playerMetal<200||G.playerCrystal<150?'disabled':''}>⬡ Station<br><span style="font-size:9px;color:var(--dim)">200M 150C</span></button></div></div>`;
+      }
+      if(obj.buildQueue.length>0){
+        html+=`<div class="info-section"><h4>SHIP QUEUE</h4>${obj.buildQueue.map(bq=>{const pct=Math.min(100,Math.floor((bq.elapsed/bq.total)*100));return`<div class="queue-item"><span>${bq.type}</span><span>${pct}%</span></div><div class="queue-progress"><div class="queue-prog-fill" style="width:${pct}%"></div></div>`;}).join('')}</div>`;
+      }
+      html+=`<div class="info-section"><h4>FLEET ACTIONS</h4><div id="fleet-controls"><button class="fleet-btn" onclick="game.selectMode='sendfleet';game.sourcePlanet='${obj.id}';showSendBanner()">▶ Send Fleet</button><button class="fleet-btn" onclick="game.selectMode='mine';game.sourcePlanet='${obj.id}';showNotif('Select asteroid','#a0c4ff')">⛏ Mine</button><button class="fleet-btn fire-btn" onclick="game.selectMode='missile';game.sourcePlanet='${obj.id}'">✦ Missile</button></div></div>`;
+    }
+  } else if(obj.type==='asteroid'){
+    html+=`<div class="info-section"><h4>ASTEROID STATS</h4><div class="info-row"><span class="lbl">Metal</span><span class="val" style="color:#a0c4ff">${Math.floor(obj.metal)}</span></div><div class="info-row"><span class="lbl">Crystal</span><span class="val" style="color:#da77ff">${Math.floor(obj.crystal)}</span></div></div>`;
+    if(obj.owner!=='enemy')html+=`<div class="info-section"><h4>ACTIONS</h4><button class="build-btn" onclick="instantMine(G.asteroids.find(a=>a.id==='${obj.id}'))">⚡ Quick Mine</button></div>`;
+  } else if(obj.type==='fleet'){
+    html+=`<div class="info-section"><h4>FLEET COMPOSITION</h4>${Object.entries(obj.ships).map(([k,v])=>{const st=SHIP_TYPES[k];return`<div class="info-row"><span class="lbl">▲ ${k}</span><span class="val">${v}</span></div>`;}).join('')}</div>`;
+  }
+  content.innerHTML=html;
+}
+
+// ============================================================
+// BUILD ACTIONS
+// ============================================================
+function buildShip(planetId,type){
+  const pl=G.planets.find(p=>p.id===planetId);
+  if(!pl||!hasShipyard(pl)){showNotif('Needs a Shipyard!','#ff3355');return;}
+  const stats=SHIP_TYPES[type];
+  if(G.playerMetal<stats.cost.metal||G.playerCrystal<stats.cost.crystal){showNotif('Not enough resources!','#ff3355');return;}
+  G.playerMetal-=stats.cost.metal; G.playerCrystal-=stats.cost.crystal;
+  pl.buildQueue.push({type,count:1,elapsed:0,total:stats.buildTime*60});
+  showNotif(`Building ${type}...`,'#00cfff'); renderInfoPanel();
+}
+function buildStation(planetId){
+  const pl=G.planets.find(p=>p.id===planetId); if(!pl)return;
+  if(G.playerMetal<200||G.playerCrystal<150){showNotif('Not enough resources!','#ff3355');return;}
+  G.playerMetal-=200; G.playerCrystal-=150;
+  pl.buildQueue.push({type:'DefenseStation',count:1,elapsed:0,total:25*60});
+  showNotif('Building defense station...','#7b2fff');
+}
+function buildWarpGate(planetId){
+  const pl=G.planets.find(p=>p.id===planetId); if(!pl||pl.warpGate){return;}
+  if(G.playerMetal<350||G.playerCrystal<250){showNotif('Not enough resources!','#ff3355');return;}
+  G.playerMetal-=350; G.playerCrystal-=250;
+  pl.warpGate=true; showNotif('Warp gate constructed!','#7b2fff'); renderInfoPanel();
+}
+function buildDysonSphere(sysIdx){
+  const sys=SYSTEMS[sysIdx]; if(!sys||sys.isBlackhole)return;
+  if(G.playerMetal<DYSON_COST.metal||G.playerCrystal<DYSON_COST.crystal){showNotif('Not enough resources!','#ff3355');return;}
+  if(sys.sun.dysonsphere||sys.sun.dysonBuilding){showNotif('Already building or built!','#ff9900');return;}
+  G.playerMetal-=DYSON_COST.metal; G.playerCrystal-=DYSON_COST.crystal;
+  sys.sun.dysonBuilding=true; sys.sun.dysonOwner='player'; sys.sun.dysonElapsed=0;
+  showNotif(`Dyson Sphere construction begun in ${sys.name}!`,'#ffd700'); renderInfoPanel();
+}
+function constructBuilding(planetId,type){
+  const pl=G.planets.find(p=>p.id===planetId); if(!pl)return;
+  const bDef=BUILDINGS[type];
+  if(G.playerMetal<bDef.cost.metal||G.playerCrystal<bDef.cost.crystal){showNotif('Not enough resources!','#ff3355');return;}
+  if(pl.buildingQueue&&pl.buildingQueue.some(q=>q.type===type)){showNotif('Already in queue!','#ff9900');return;}
+  G.playerMetal-=bDef.cost.metal; G.playerCrystal-=bDef.cost.crystal;
+  if(!pl.buildingQueue)pl.buildingQueue=[];
+  pl.buildingQueue.push({type,elapsed:0,total:bDef.buildTime*60});
+  showNotif(`Constructing ${bDef.name}...`,'#ffe066'); renderInfoPanel();
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+function showNotif(msg,color='#00cfff'){
+  const c=document.getElementById('notif-container');
+  const el=document.createElement('div');
+  el.className='notif'; el.textContent=msg;
+  el.style.borderColor=color+'66'; el.style.color=color;
+  c.appendChild(el);
+  gsap.fromTo(el,{opacity:0,y:-10},{opacity:1,y:0,duration:0.3});
+  setTimeout(()=>{gsap.to(el,{opacity:0,y:-10,duration:0.3,onComplete:()=>el.remove()});},2800);
+}
+function showSendBanner(){const b=document.getElementById('send-mode-banner');b.style.display='block';gsap.fromTo(b,{opacity:0},{opacity:1,duration:0.3});}
+function hideSendBanner(){const b=document.getElementById('send-mode-banner');gsap.to(b,{opacity:0,duration:0.2,onComplete:()=>b.style.display='none'});}
+
+// ============================================================
+// SPEED CONTROL
+// ============================================================
+function setSpeed(v){G.speed=v;document.querySelectorAll('.sp-btn').forEach(b=>b.classList.remove('active'));const map={0.5:'spd-half',1:'spd-1',2:'spd-2',3:'spd-3'};document.getElementById(map[v])?.classList.add('active');}
+window.setSpeed=setSpeed;
+
+// ============================================================
+// SETTINGS
+// ============================================================
+const SETTINGS={immersive:false,minimap:true,panels:{'stats-panel':true,'res-panel':true,'actions-panel':true,'speed-panel':true,'bottom-bar':true}};
+function toggleSettings(){
+  const panel=document.getElementById('settings-panel'),btn=document.getElementById('settings-btn');
+  const isOpen=panel.classList.contains('open');
+  if(isOpen){gsap.to(panel,{opacity:0,scale:0.92,duration:0.18,onComplete:()=>panel.classList.remove('open')});btn.classList.remove('active');}
+  else{panel.classList.add('open');panel.style.opacity=0;panel.style.transform='scale(0.92)';btn.classList.add('active');gsap.to(panel,{opacity:1,scale:1,duration:0.2});}
+}
+function applyHUDMode(){
+  const immersive=!document.getElementById('toggle-hud').checked;
+  SETTINGS.immersive=immersive; document.body.classList.toggle('immersive',immersive);
+  if(!immersive){showNotif('Full HUD restored','#00cfff');}
+  else{G.selectedObj=null;renderInfoPanel();showNotif('Immersive mode','#7b2fff');}
+}
+function applyMinimapToggle(){const el=document.getElementById('minimap-panel');if(!el)return;const visible=document.getElementById('toggle-minimap').checked;if(!SETTINGS.immersive){el.style.opacity=visible?'':'0';el.style.pointerEvents=visible?'':'none';}}
+function applyPanelToggle(panelId,checkbox){if(SETTINGS.immersive)return;const el=document.getElementById(panelId);if(!el)return;const visible=checkbox.checked;SETTINGS.panels[panelId]=visible;gsap.to(el,{opacity:visible?1:0,duration:0.25});el.style.pointerEvents=visible?'':'none';}
+window.toggleSettings=toggleSettings; window.applyHUDMode=applyHUDMode; window.applyMinimapToggle=applyMinimapToggle; window.applyPanelToggle=applyPanelToggle;
+document.addEventListener('click',e=>{
+  const panel=document.getElementById('settings-panel'),btn=document.getElementById('settings-btn');
+  if(!panel||!btn)return;
+  if(!panel.contains(e.target)&&!btn.contains(e.target)){if(panel.classList.contains('open')){gsap.to(panel,{opacity:0,scale:0.92,duration:0.15,onComplete:()=>panel.classList.remove('open')});btn.classList.remove('active');}}
+});
+
+// ============================================================
+// INPUT
+// ============================================================
+let mouseDownTime=0,mouseDownX=0,mouseDownY=0,didDrag=false;
+canvas.addEventListener('mousedown',e=>{
+  CAM.dragging=true; CAM.dragStartX=e.clientX; CAM.dragStartY=e.clientY;
+  CAM.camStartX=CAM.x; CAM.camStartY=CAM.y;
+  mouseDownTime=Date.now(); mouseDownX=e.clientX; mouseDownY=e.clientY; didDrag=false;
+});
+canvas.addEventListener('mousemove',e=>{
+  if(!CAM.dragging)return;
+  const dx=e.clientX-CAM.dragStartX,dy=e.clientY-CAM.dragStartY;
+  if(Math.hypot(dx,dy)>4)didDrag=true;
+  CAM.x=CAM.camStartX-dx/CAM.zoom; CAM.y=CAM.camStartY-dy/CAM.zoom;
+  clampCamera(); canvas.style.cursor='grab';
+});
+canvas.addEventListener('mouseup',e=>{CAM.dragging=false;canvas.style.cursor='crosshair';if(didDrag)return;handleClick(e);});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const zoomDelta=e.deltaY>0?0.88:1.12;
+  const newZoom=Math.max(CAM.minZoom,Math.min(CAM.maxZoom,CAM.zoom*zoomDelta));
+  const rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const worldX=mx/CAM.zoom+CAM.x,worldY=my/CAM.zoom+CAM.y;
+  CAM.zoom=newZoom; CAM.x=worldX-mx/CAM.zoom; CAM.y=worldY-my/CAM.zoom; clampCamera();
+},{passive:false});
+
+// Touch support
+let touchStartX=0,touchStartY=0,touchCamX=0,touchCamY=0,touchMoved=false,lastPinchDist=0;
+canvas.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){touchStartX=e.touches[0].clientX;touchStartY=e.touches[0].clientY;touchCamX=CAM.x;touchCamY=CAM.y;touchMoved=false;}
+  else if(e.touches.length===2){lastPinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}
+  e.preventDefault();
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  if(e.touches.length===1){const dx=e.touches[0].clientX-touchStartX,dy=e.touches[0].clientY-touchStartY;if(Math.hypot(dx,dy)>6)touchMoved=true;CAM.x=touchCamX-dx/CAM.zoom;CAM.y=touchCamY-dy/CAM.zoom;clampCamera();}
+  else if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(lastPinchDist>0){CAM.zoom=Math.max(CAM.minZoom,Math.min(CAM.maxZoom,CAM.zoom*d/lastPinchDist));clampCamera();}lastPinchDist=d;}
+  e.preventDefault();
+},{passive:false});
+canvas.addEventListener('touchend',e=>{if(!touchMoved&&e.changedTouches.length===1){const fakeEvt={clientX:e.changedTouches[0].clientX,clientY:e.changedTouches[0].clientY};handleClick(fakeEvt);}e.preventDefault();},{passive:false});
+
+// Minimap click
+document.getElementById('minimap-canvas').addEventListener('click',e=>{
+  const rect=mmCanvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  CAM.x=(mx/mmCanvas.width)*GALAXY_W-canvas.width/2/CAM.zoom;
+  CAM.y=(my/mmCanvas.height)*GALAXY_H-canvas.height/2/CAM.zoom;
+  clampCamera();
+});
+
+// ============================================================
+// CLICK HANDLING
+// ============================================================
+function handleClick(e) {
+  const rect=canvas.getBoundingClientRect();
+  const sx=e.clientX-rect.left, sy=e.clientY-rect.top;
+  const {x:wx,y:wy}=screenToWorld(sx,sy);
+
+  // Check warp gates first
+  for(const wg of G.warpGates){
+    if(Math.hypot(wx-wg.xA,wy-wg.yA)<40||Math.hypot(wx-wg.xB,wy-wg.yB)<40){
+      if(G.selectMode==='sendfleet'){
+        // Route fleet through this warp gate
+        const srcPl=G.planets.find(p=>p.id===G.sourcePlanet)||G.planets.filter(p=>p.owner==='player'&&p.orbitingFleets.length>0)[0];
+        if(srcPl&&srcPl.orbitingFleets.length>0){
+          const fl=srcPl.orbitingFleets.shift();
+          fl.traveling=true; fl.startX=srcPl.x; fl.startY=srcPl.y;
+          fl.x=srcPl.x; fl.y=srcPl.y;
+          // Head toward nearest gate end
+          const goA=Math.hypot(wx-wg.xA,wy-wg.yA)<Math.hypot(wx-wg.xB,wy-wg.yB);
+          fl.targetX=goA?wg.xA:wg.xB; fl.targetY=goA?wg.yA:wg.yB;
+          fl.targetObj=null; fl.warpTarget=wg; fl.trail=[];
+          G.fleets.push(fl);
+          showNotif(`Fleet warping via ${wg.sysA.name}↔${wg.sysB.name}`,'#b57fff');
+        }
+        G.selectMode='normal'; hideSendBanner();
+        return;
+      }
+      showNotif(`Warp gate: ${wg.sysA.name} ↔ ${wg.sysB.name}`,'#b57fff');
+      return;
+    }
+  }
+
+  // Check planets
+  for(const pl of G.planets){
+    if(!G.loadedChunks.has(pl.sysIdx))continue;
+    if(Math.hypot(wx-pl.x,wy-pl.y)<pl.radius+10){handleObjectClick(pl,wx,wy);return;}
+  }
+  // Check asteroids
+  for(const ast of G.asteroids){
+    if(!G.loadedChunks.has(ast.sysIdx))continue;
+    if(Math.hypot(wx-ast.x,wy-ast.y)<ast.radius+10){handleObjectClick(ast,wx,wy);return;}
+  }
+  // Check fleets
+  for(const fl of G.fleets){
+    if(fl.traveling&&Math.hypot(wx-fl.x,wy-fl.y)<20){G.selectedObj=fl;renderInfoPanel();return;}
+  }
+  if(G.selectMode==='normal'){G.selectedObj=null;renderInfoPanel();}
+}
+
+function handleObjectClick(obj,wx,wy){
+  if(G.selectMode==='sendfleet'){
+    const srcPl=G.planets.find(p=>p.id===G.sourcePlanet)||G.planets.filter(p=>p.owner==='player'&&p.orbitingFleets.length>0)[0];
+    if(srcPl&&srcPl!==obj&&srcPl.orbitingFleets.length>0){
+      const fl=srcPl.orbitingFleets.shift();
+      fl.traveling=true; fl.startX=srcPl.x; fl.startY=srcPl.y;
+      fl.x=srcPl.x; fl.y=srcPl.y; fl.targetX=obj.x; fl.targetY=obj.y;
+      fl.targetObj=obj; fl.trail=[]; G.fleets.push(fl);
+      showNotif(`Fleet en route to ${obj.name}`,'#00cfff');
+    } else { showNotif('No fleet to send!','#ff9900'); }
+    G.selectMode='normal'; hideSendBanner();
+  } else if(G.selectMode==='mine'){
+    if(obj.type==='asteroid')instantMine(obj);
+    G.selectMode='normal';
+  } else if(G.selectMode==='missile'){
+    const srcPl=G.planets.find(p=>p.id===G.sourcePlanet)||G.planets.filter(p=>p.owner==='player'&&(p.missileStock||0)>0)[0];
+    if(srcPl&&srcPl.missileStock>0){
+      srcPl.missileStock--; G.playerMissiles--;
+      G.missiles.push({x:srcPl.x,y:srcPl.y,targetX:obj.x,targetY:obj.y,targetObj:obj,owner:'player',trail:[]});
+      showNotif('Missile launched!','#ff9900');
+    } else { showNotif('No missiles!','#ff3355'); }
+    G.selectMode='normal';
+  } else {
+    G.selectedObj=obj; G.sourcePlanet=obj.id;
+    renderInfoPanel();
+    gsap.fromTo('#info-panel',{opacity:0,x:20},{opacity:1,x:0,duration:0.25});
+  }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){G.selectMode='normal';G.selectedObj=null;hideSendBanner();renderInfoPanel();}
+  if(e.key==='s'||e.key==='S'){G.selectMode='sendfleet';showSendBanner();}
+  if(e.key==='m'||e.key==='M'){G.selectMode='mine';showNotif('Select asteroid','#a0c4ff');}
+  if(e.key==='+'||e.key==='='){CAM.zoom=Math.min(CAM.maxZoom,CAM.zoom*1.15);clampCamera();}
+  if(e.key==='-'){CAM.zoom=Math.max(CAM.minZoom,CAM.zoom*0.87);clampCamera();}
+});
+
+// ============================================================
+// WIN/LOSE CHECK
+// ============================================================
+function checkGameState(){
+  if(G.gameOver)return;
+  const ePlanets=G.planets.filter(p=>p.owner==='enemy').length;
+  const pPlanets=G.planets.filter(p=>p.owner==='player').length;
+  if(ePlanets===0){G.gameOver=true;showFinalScreen('VICTORY','#00ff88');}
+  if(pPlanets===0){G.gameOver=true;showFinalScreen('DEFEAT','#ff3355');}
+}
+function showFinalScreen(text,color){
+  const div=document.createElement('div');
+  div.style.cssText=`position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(1,2,10,0.92);z-index:1000;font-family:'Orbitron',monospace;`;
+  div.innerHTML=`<div style="font-size:56px;font-weight:900;color:${color};text-shadow:0 0 30px ${color};letter-spacing:8px;margin-bottom:20px">${text}</div><div style="color:#4a5f80;font-size:14px;letter-spacing:3px;margin-bottom:30px">STELLAR DOMINION II</div><button onclick="location.reload()" style="background:rgba(0,207,255,0.1);border:1px solid rgba(0,207,255,0.4);color:#00cfff;font-family:'Orbitron',monospace;font-size:12px;letter-spacing:3px;padding:12px 30px;border-radius:6px;cursor:pointer;">NEW GAME</button>`;
+  document.body.appendChild(div);
+  gsap.fromTo(div,{opacity:0},{opacity:1,duration:1});
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
+let lastTime=0;
+let aiCooldown=0;
+const AI_INTERVAL=8000;
+
+function gameLoop(ts){
+  if(G.gameOver)return;
+  const dt=Math.min(ts-lastTime,60); lastTime=ts; G.tick++;
+
+  ctx.fillStyle='#01020a';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  updateLoadedChunks();
+
+  drawStars(ts);
+  drawNebulae();
+  drawSystemBorders(ts);
+  drawSuns(ts);
+  drawWarpGates(ts);
+  drawAsteroids(ts);
+  drawPlanets(ts);
+  drawFleets(ts);
+  drawMissiles(ts);
+  drawExplosions();
+
+  updateFleets(dt);
+  updateMissiles(dt);
+  updateDefenseStations(dt);
+  updateResources(dt);
+  updateBuildQueues(dt);
+
+  aiCooldown-=dt;
+  if(aiCooldown<=0){runAI();aiCooldown=AI_INTERVAL;}
+
+  updateHUD();
+  renderInfoPanel();
+  drawMinimap();
+  checkGameState();
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+// INIT with loading screen
+// ============================================================
+async function init(){
+  const bar=document.getElementById('loading-bar');
+  const status=document.getElementById('loading-status');
+
+  status.textContent='GENERATING STAR SYSTEMS...'; bar.style.width='15%';
+  await new Promise(r=>setTimeout(r,200));
+  generateGalaxy();
+  bar.style.width='50%'; status.textContent='PLACING PLANETS...';
+  await new Promise(r=>setTimeout(r,200));
+
+  spawnPlayerFleet();
+  bar.style.width='75%'; status.textContent='CALIBRATING WARP GATES...';
+  await new Promise(r=>setTimeout(r,200));
+
+  centerOnStart();
+  bar.style.width='95%'; status.textContent='LAUNCHING...';
+  await new Promise(r=>setTimeout(r,300));
+  bar.style.width='100%';
+  await new Promise(r=>setTimeout(r,200));
+
+  const loadScreen=document.getElementById('loading-screen');
+  gsap.to(loadScreen,{opacity:0,duration:0.6,onComplete:()=>loadScreen.remove()});
+
+  showNotif('Welcome, Commander. 9 systems await.','#00cfff');
+  setTimeout(()=>showNotif('Scroll out to see the full galaxy map','#a0c4ff'),2200);
+  setTimeout(()=>showNotif('Warp gates connect systems — route fleets through them!','#b57fff'),4400);
+  setTimeout(()=>showNotif('Build a Dyson Sphere to eliminate Power Plant needs','#ffd700'),6600);
+
+  requestAnimationFrame(gameLoop);
+}
+
+// Expose globals
+const game={
+  get selectMode(){return G.selectMode;}, set selectMode(v){G.selectMode=v;},
+  get sourcePlanet(){return G.sourcePlanet;}, set sourcePlanet(v){G.sourcePlanet=v;},
+};
+window.game=game;
+window.buildShip=buildShip; window.buildStation=buildStation; window.buildWarpGate=buildWarpGate;
+window.buildDysonSphere=buildDysonSphere; window.constructBuilding=constructBuilding;
+window.instantMine=instantMine; window.G=G; window.SYSTEMS=SYSTEMS;
+window.showSendBanner=showSendBanner; window.showNotif=showNotif;
+
+init();
+</script>
+</body>
+</html>

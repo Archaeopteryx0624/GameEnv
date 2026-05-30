@@ -1,0 +1,1641 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STELLAR DOMINION II</title>
+<link href="" rel="stylesheet">
+<link rel="stylesheet" href="/libs/css/fa.min.css">
+<script src="/libs/js/gsap.min.js"></script>
+<script src="/libs/js/howler.min.js"></script>
+
+<style>
+:root {
+  --player:   #00ffaa;
+  --enemy:    #ff2255;
+  --neutral:  #ffcc00;
+  --accent:   #00d4ff;
+  --accent2:  #a855f7;
+  --bg:       #00010d;
+  --panel:    rgba(0,8,32,0.88);
+  --border:   rgba(0,180,255,0.18);
+  --text:     #b8d4ff;
+  --dim:      #3a5070;
+  --warn:     #ff9900;
+  --font-ui:  'Exo 2', sans-serif;
+  --font-mono:'Share Tech Mono', monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);}
+body{font-family:var(--font-ui);color:var(--text);cursor:crosshair;}
+
+/* ── CANVAS LAYERS ── */
+#bg-canvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;}
+#game-canvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;}
+#fx-canvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none;}
+
+/* ── HUD SHELL ── */
+#hud{position:absolute;inset:0;z-index:10;pointer-events:none;}
+.hp{pointer-events:all;}
+
+/* ── PANELS ── */
+.panel{
+  position:absolute;
+  background:var(--panel);
+  border:1px solid var(--border);
+  backdrop-filter:blur(16px);
+  border-radius:6px;
+}
+
+/* top-left stats */
+#stats{top:12px;left:12px;padding:14px 18px;min-width:210px;}
+#stats h2{
+  font-family:var(--font-mono);font-size:10px;
+  letter-spacing:4px;color:var(--accent);
+  margin-bottom:12px;
+  text-shadow:0 0 10px var(--accent);
+}
+.srow{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:13px;}
+.srow i{width:14px;text-align:center;font-size:10px;}
+.sval{margin-left:auto;font-family:var(--font-mono);font-size:12px;color:#fff;}
+
+/* resources bar */
+#resbar{
+  top:12px;left:50%;transform:translateX(-50%);
+  padding:9px 22px;display:flex;gap:22px;align-items:center;
+}
+.ritem{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;}
+.ritem i{font-size:12px;}
+.ritem.metal i{color:#88ccff;}
+.ritem.crystal i{color:#cc88ff;}
+.ritem.energy i{color:#ffdd44;}
+.rval{font-family:var(--font-mono);font-size:13px;}
+.rsep{width:1px;height:22px;background:var(--border);}
+
+/* top-right actions */
+#actions{top:12px;right:12px;padding:14px 16px;min-width:200px;}
+#actions h2{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:4px;
+  color:var(--accent);margin-bottom:10px;text-shadow:0 0 10px var(--accent);
+}
+.abtn{
+  display:block;width:100%;margin-bottom:5px;
+  background:rgba(0,212,255,.07);
+  border:1px solid rgba(0,212,255,.25);
+  color:var(--text);font-family:var(--font-ui);
+  font-size:12px;font-weight:600;
+  padding:7px 10px;border-radius:4px;cursor:pointer;
+  letter-spacing:.5px;transition:all .18s;pointer-events:all;
+  text-align:left;
+}
+.abtn:hover{background:rgba(0,212,255,.18);border-color:var(--accent);color:#fff;}
+.abtn i{margin-right:7px;width:12px;}
+.abtn.g{border-color:rgba(0,255,170,.3);background:rgba(0,255,170,.06);}
+.abtn.g:hover{background:rgba(0,255,170,.18);border-color:var(--player);}
+.abtn.r{border-color:rgba(255,34,85,.3);background:rgba(255,34,85,.06);}
+.abtn.r:hover{background:rgba(255,34,85,.18);border-color:var(--enemy);}
+.abtn.p{border-color:rgba(168,85,247,.3);background:rgba(168,85,247,.06);}
+.abtn.p:hover{background:rgba(168,85,247,.18);border-color:var(--accent2);}
+#ai-box{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--dim);}
+#ai-strat{color:var(--enemy);font-weight:700;}
+
+/* info panel */
+#info{bottom:14px;right:14px;width:290px;max-height:520px;overflow-y:auto;padding:16px;display:none;}
+#info.show{display:block;}
+#info h3{font-family:var(--font-mono);font-size:13px;letter-spacing:2px;margin-bottom:3px;}
+.otag{font-size:10px;font-weight:700;letter-spacing:3px;margin-bottom:12px;}
+.isec{margin-bottom:11px;}
+.isec h4{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--dim);margin-bottom:5px;}
+.irow{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;}
+.irow .l{color:var(--dim);}
+.irow .v{color:#fff;font-weight:500;}
+.bbar{background:rgba(255,255,255,.06);border-radius:2px;height:3px;margin-bottom:7px;overflow:hidden;}
+.bfill{height:100%;border-radius:2px;}
+.bbtn{
+  display:inline-block;margin:2px;
+  background:rgba(0,212,255,.07);
+  border:1px solid rgba(0,212,255,.22);
+  color:var(--text);font-size:11px;
+  padding:4px 8px;border-radius:4px;
+  cursor:pointer;transition:all .15s;pointer-events:all;
+}
+.bbtn:hover{background:rgba(0,212,255,.2);color:#fff;}
+.bbtn:disabled{opacity:.3;cursor:not-allowed;}
+.qitem{display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.qprog{background:rgba(0,212,255,.12);border-radius:2px;height:3px;margin-top:2px;}
+.qpfill{height:100%;background:var(--accent);border-radius:2px;}
+.faction-btns{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
+.faction-btns .abtn{flex:1 1 calc(50% - 4px);padding:5px 4px;font-size:11px;text-align:center;}
+
+/* speed panel */
+#spd{bottom:14px;left:14px;padding:10px 14px;}
+#spd h4{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--dim);margin-bottom:5px;}
+.spbtns{display:flex;gap:4px;}
+.spbtn{padding:4px 8px;border-radius:3px;font-size:10px;font-family:var(--font-mono);
+  cursor:pointer;border:1px solid rgba(0,212,255,.22);background:rgba(0,212,255,.05);
+  color:var(--dim);transition:all .15s;pointer-events:all;}
+.spbtn.on,.spbtn:hover{background:rgba(0,212,255,.18);color:var(--accent);}
+
+/* bottom bar */
+#botbar{bottom:14px;left:50%;transform:translateX(-50%);padding:8px 18px;
+  display:flex;gap:18px;pointer-events:none;}
+.hint{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--dim);}
+.key{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);
+  border-radius:3px;padding:1px 6px;font-family:var(--font-mono);font-size:9px;color:var(--text);}
+
+/* mode banner */
+#modebanner{
+  position:absolute;top:68px;left:50%;transform:translateX(-50%);
+  background:rgba(255,153,0,.12);border:1px solid var(--warn);
+  color:var(--warn);padding:7px 24px;border-radius:20px;
+  font-family:var(--font-mono);font-size:12px;letter-spacing:2px;
+  display:none;z-index:50;pointer-events:none;
+  text-shadow:0 0 8px var(--warn);
+}
+
+/* notifications */
+#notifs{position:absolute;top:68px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:5px;z-index:60;pointer-events:none;}
+.notif{
+  background:rgba(0,8,32,.9);border:1px solid var(--border);
+  padding:6px 18px;border-radius:20px;font-size:12px;font-weight:600;
+  backdrop-filter:blur(8px);opacity:0;letter-spacing:.5px;
+}
+
+/* battle overlay */
+#battle{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  background:rgba(0,4,20,.97);
+  border:1px solid rgba(255,34,85,.45);
+  width:370px;padding:22px;border-radius:10px;
+  display:none;z-index:200;backdrop-filter:blur(18px);
+}
+#battle h3{font-family:var(--font-mono);font-size:12px;color:var(--enemy);
+  letter-spacing:3px;text-align:center;margin-bottom:14px;
+  text-shadow:0 0 10px var(--enemy);}
+.bsides{display:flex;justify-content:space-between;gap:14px;}
+.bside h4{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;margin-bottom:7px;}
+.bside.bp h4{color:var(--player);}
+.bside.be h4{color:var(--enemy);}
+.blog{margin-top:10px;font-size:10px;line-height:1.7;max-height:90px;overflow-y:auto;
+  color:var(--dim);border-top:1px solid var(--border);padding-top:7px;font-family:var(--font-mono);}
+.bres{text-align:center;margin-top:10px;font-family:var(--font-mono);font-size:14px;letter-spacing:2px;}
+.bwin{color:var(--player);text-shadow:0 0 14px var(--player);}
+.blose{color:var(--enemy);text-shadow:0 0 14px var(--enemy);}
+
+/* energy warning */
+.ewarn{color:var(--warn);font-size:10px;margin-top:4px;}
+
+/* scrollbar */
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:rgba(0,0,0,.3);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- Three stacked canvases: static bg | game objects | particle FX -->
+<canvas id="bg-canvas"></canvas>
+<canvas id="game-canvas"></canvas>
+<canvas id="fx-canvas"></canvas>
+
+<div id="hud">
+  <!-- Stats TL -->
+  <div class="panel hp" id="stats">
+    <h2>⬡ COMMAND</h2>
+    <div class="srow"><i class="fas fa-globe" style="color:var(--player)"></i><span>Planets</span><span class="sval" id="s-planets">0</span></div>
+    <div class="srow"><i class="fas fa-meteor" style="color:#88ccff"></i><span>Asteroids</span><span class="sval" id="s-ast">0</span></div>
+    <div class="srow"><i class="fas fa-rocket" style="color:var(--accent)"></i><span>Fleets</span><span class="sval" id="s-fleets">0</span></div>
+    <div class="srow"><i class="fas fa-shield-halved" style="color:var(--accent2)"></i><span>Stations</span><span class="sval" id="s-sta">0</span></div>
+  </div>
+
+  <!-- Resources TC -->
+  <div class="panel hp" id="resbar">
+    <div class="ritem metal"><i class="fas fa-cubes"></i><span style="color:var(--dim)">METAL</span><span class="rval" id="r-metal">0</span></div>
+    <div class="rsep"></div>
+    <div class="ritem crystal"><i class="fas fa-gem"></i><span style="color:var(--dim)">CRYSTAL</span><span class="rval" id="r-crystal">0</span></div>
+    <div class="rsep"></div>
+    <div class="ritem energy"><i class="fas fa-bolt"></i><span style="color:var(--dim)">ENERGY</span><span class="rval" id="r-energy">0</span></div>
+    <div class="rsep"></div>
+    <div class="ritem" style="color:#ff9900"><i class="fas fa-bomb"></i><span style="color:var(--dim)">MSLS</span><span class="rval" id="r-msls">0</span></div>
+  </div>
+
+  <!-- Actions TR -->
+  <div class="panel hp" id="actions">
+    <h2>⬡ ACTIONS</h2>
+    <button class="abtn g" onclick="setMode('sendfleet')"><i class="fas fa-rocket"></i>SEND FLEET</button>
+    <button class="abtn" onclick="setMode('mine')"><i class="fas fa-hammer"></i>MINE ASTEROID</button>
+    <button class="abtn r" onclick="setMode('missile')"><i class="fas fa-bomb"></i>FIRE MISSILE</button>
+    <button class="abtn p" onclick="setMode('warpgate')"><i class="fas fa-circle-nodes"></i>BUILD WARP GATE</button>
+    <div id="ai-box">AI: <span id="ai-strat">EXPANDING</span> &nbsp;|&nbsp; T<span id="ai-turn">0</span></div>
+  </div>
+
+  <!-- Notifications -->
+  <div id="notifs"></div>
+  <div id="modebanner">— SELECT DESTINATION —</div>
+
+  <!-- Info panel BR -->
+  <div class="panel hp" id="info"><div id="info-inner"></div></div>
+
+  <!-- Speed BL -->
+  <div class="panel hp" id="spd">
+    <h4>SPEED</h4>
+    <div class="spbtns">
+      <button class="spbtn" onclick="setSpd(.5)" id="sp-.5">½×</button>
+      <button class="spbtn on" onclick="setSpd(1)"  id="sp-1">1×</button>
+      <button class="spbtn" onclick="setSpd(2)"  id="sp-2">2×</button>
+      <button class="spbtn" onclick="setSpd(3)"  id="sp-3">3×</button>
+    </div>
+  </div>
+
+  <!-- Bottom hints -->
+  <div class="panel" id="botbar">
+    <div class="hint"><span class="key">CLICK</span>select</div>
+    <div class="hint"><span class="key">S</span>send fleet</div>
+    <div class="hint"><span class="key">M</span>mine</div>
+    <div class="hint"><span class="key">F</span>fire missile</div>
+    <div class="hint"><span class="key">ESC</span>cancel</div>
+  </div>
+
+  <!-- Battle overlay -->
+  <div id="battle">
+    <h3>⚡ SPACE COMBAT</h3>
+    <div class="bsides">
+      <div class="bside bp"><h4>PLAYER</h4><div id="b-player"></div></div>
+      <div class="bside be"><h4>ENEMY</h4><div id="b-enemy"></div></div>
+    </div>
+    <div class="blog" id="b-log"></div>
+    <div class="bres" id="b-res"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  STELLAR DOMINION II  —  Full-Fat Animated Edition
+//  Three canvas layers: static nebula BG | game | particle FX
+// ═══════════════════════════════════════════════════════════════
+
+// ── CANVAS SETUP ──────────────────────────────────────────────
+const bgC  = document.getElementById('bg-canvas');
+const gameC= document.getElementById('game-canvas');
+const fxC  = document.getElementById('fx-canvas');
+const bg   = bgC.getContext('2d');
+const ctx  = gameC.getContext('2d');
+const fx   = fxC.getContext('2d');
+
+function resize(){
+  [bgC,gameC,fxC].forEach(c=>{c.width=innerWidth;c.height=innerHeight;});
+  drawStaticBG();
+}
+window.addEventListener('resize',()=>{resize();});
+
+// ═══════════════════════════════════════════════════════════════
+//  STATIC BACKGROUND  (drawn once to bgC, never again)
+// ═══════════════════════════════════════════════════════════════
+const STARS=[];
+function generateStars(n){
+  STARS.length=0;
+  for(let i=0;i<n;i++) STARS.push({
+    x:Math.random()*innerWidth, y:Math.random()*innerHeight,
+    r:Math.random()*1.8+.2,
+    a:Math.random()*.8+.2,
+    layer:Math.floor(Math.random()*3) // 0=tiny,1=mid,2=bright
+  });
+}
+
+function drawStaticBG(){
+  bg.fillStyle='#00010d';
+  bg.fillRect(0,0,bgC.width,bgC.height);
+
+  // Nebula clouds (radial gradients, layered)
+  const nebulae=[
+    {x:.22,y:.35,r:420,c:'rgba(30,0,80,'},
+    {x:.68,y:.6, r:360,c:'rgba(0,30,70,'},
+    {x:.5, y:.2, r:300,c:'rgba(20,0,50,'},
+    {x:.8, y:.8, r:250,c:'rgba(0,20,60,'},
+    {x:.1, y:.75,r:200,c:'rgba(40,10,60,'},
+  ];
+  nebulae.forEach(n=>{
+    const g=bg.createRadialGradient(
+      n.x*bgC.width,n.y*bgC.height,0,
+      n.x*bgC.width,n.y*bgC.height,n.r
+    );
+    g.addColorStop(0,n.c+'.18)');
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    bg.fillStyle=g;
+    bg.fillRect(0,0,bgC.width,bgC.height);
+  });
+
+  // Stars — three size layers
+  STARS.forEach(s=>{
+    bg.beginPath();
+    bg.arc(s.x,s.y,s.r,0,Math.PI*2);
+    if(s.layer===2){
+      // bright stars get a tiny cross-flare
+      bg.fillStyle=`rgba(255,255,255,${s.a})`;
+      bg.fill();
+      bg.strokeStyle=`rgba(200,220,255,${s.a*.4})`;
+      bg.lineWidth=.5;
+      bg.beginPath();
+      bg.moveTo(s.x-s.r*3,s.y); bg.lineTo(s.x+s.r*3,s.y);
+      bg.moveTo(s.x,s.y-s.r*3); bg.lineTo(s.x,s.y+s.r*3);
+      bg.stroke();
+    } else {
+      bg.fillStyle=`rgba(180,200,255,${s.a})`;
+      bg.fill();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PARTICLE SYSTEM  (drawn on fxC each frame)
+// ═══════════════════════════════════════════════════════════════
+const particles=[];
+const lasers=[];     // {x1,y1,x2,y2,life,color}
+const rings=[];      // shockwave rings
+const floaties=[];   // floating resource numbers
+
+function spawnBurst(x,y,color,n=18,speed=3){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2;
+    const spd=Math.random()*speed+1;
+    particles.push({
+      x,y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,
+      r:Math.random()*3+1,
+      life:1, decay:.022+Math.random()*.018,
+      color
+    });
+  }
+}
+function spawnRing(x,y,color){
+  rings.push({x,y,r:8,maxR:90,life:1,color});
+}
+function spawnFloat(x,y,text,color='#00ffaa'){
+  floaties.push({x,y:y-10,text,color,life:1,vy:-1.2});
+}
+function spawnLaser(x1,y1,x2,y2,color='rgba(255,80,80,1)'){
+  lasers.push({x1,y1,x2,y2,life:1,color});
+}
+function spawnEngineTrail(fleet){
+  if(!fleet.traveling) return;
+  spawnBurst(fleet.x,fleet.y,ownerGlow(fleet.owner),2,1.2);
+}
+
+function updateFX(dt){
+  fx.clearRect(0,0,fxC.width,fxC.height);
+  const spd=G.speed;
+
+  // Particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx*spd; p.y+=p.vy*spd;
+    p.vy+=.04*spd;
+    p.life-=p.decay*spd;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    fx.beginPath();
+    fx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);
+    fx.fillStyle=p.color.replace(')',`,${p.life})`).replace('rgb(','rgba(');
+    if(!p.color.includes('rgba')) fx.fillStyle=hexAlpha(p.color,p.life);
+    fx.fill();
+  }
+
+  // Rings
+  for(let i=rings.length-1;i>=0;i--){
+    const r=rings[i];
+    r.r+=3.5*spd; r.life-=.028*spd;
+    if(r.life<=0){rings.splice(i,1);continue;}
+    fx.beginPath();
+    fx.arc(r.x,r.y,r.r,0,Math.PI*2);
+    fx.strokeStyle=hexAlpha(r.color,r.life*.7);
+    fx.lineWidth=2.5*r.life;
+    fx.stroke();
+  }
+
+  // Lasers
+  for(let i=lasers.length-1;i>=0;i--){
+    const l=lasers[i];
+    l.life-=.06*spd;
+    if(l.life<=0){lasers.splice(i,1);continue;}
+    fx.beginPath();
+    fx.moveTo(l.x1,l.y1); fx.lineTo(l.x2,l.y2);
+    fx.strokeStyle=l.color.replace(',1)',`,${l.life})`);
+    fx.lineWidth=2*l.life;
+    fx.shadowColor=l.color; fx.shadowBlur=8;
+    fx.stroke();
+    fx.shadowBlur=0;
+  }
+
+  // Floating numbers
+  for(let i=floaties.length-1;i>=0;i--){
+    const f=floaties[i];
+    f.y+=f.vy; f.life-=.018*spd;
+    if(f.life<=0){floaties.splice(i,1);continue;}
+    fx.font=`700 12px 'Share Tech Mono'`;
+    fx.textAlign='center';
+    fx.fillStyle=hexAlpha(f.color,f.life);
+    fx.fillText(f.text,f.x,f.y);
+  }
+
+  // Orbiting station glow pulses
+  G.allObjects().forEach(obj=>{
+    if(!obj.defenseStations) return;
+    obj.defenseStations.forEach(st=>{
+      const pulse=.5+.5*Math.sin(Date.now()*.003+st._phase);
+      fx.beginPath();
+      fx.arc(st.x,st.y,7+pulse*3,0,Math.PI*2);
+      fx.strokeStyle=hexAlpha(ownerGlow(st.owner),.4*pulse);
+      fx.lineWidth=1.5;
+      fx.stroke();
+    });
+  });
+}
+
+function hexAlpha(hex,a){
+  if(hex.startsWith('#')){
+    const r=parseInt(hex.slice(1,3),16);
+    const g=parseInt(hex.slice(3,5),16);
+    const b=parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${Math.max(0,Math.min(1,a))})`;
+  }
+  return hex;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════════════
+const SHIP={
+  Scout:      {hp:30, atk:8,  def:3,  spd:3.4, cost:{m:60,c:20},   time:6,  icon:'⬡'},
+  Fighter:    {hp:65, atk:20, def:9,  spd:2.6, cost:{m:120,c:40},  time:10, icon:'▶'},
+  Destroyer:  {hp:150,atk:36, def:20, spd:1.9, cost:{m:260,c:90},  time:18, icon:'◆'},
+  Dreadnought:{hp:420,atk:82, def:55, spd:1.1, cost:{m:700,c:280}, time:45, icon:'★'},
+  Miner:      {hp:40, atk:2,  def:4,  spd:1.7, cost:{m:90,c:60},   time:12, icon:'◉'},
+  Missile:    {hp:10, atk:130,def:0,  spd:5.8, cost:{m:40,c:80},   time:5,  icon:'↑'},
+};
+const BLDG={
+  MetalMine:    {cost:{m:200,c:0},  effect:'metal',   icon:'⛏', label:'Metal Mine',     desc:'+50 metal/hr per level'},
+  CrystalMine:  {cost:{m:200,c:100},effect:'crystal', icon:'💎', label:'Crystal Mine',   desc:'+30 crystal/hr per level'},
+  Generator:    {cost:{m:150,c:0},  effect:'energy',  icon:'⚡', label:'Power Generator', desc:'+100 energy per level'},
+  Shipyard:     {cost:{m:500,c:0},  effect:'ships',   icon:'🏭', label:'Shipyard',        desc:'Unlocks ship construction'},
+  DefPlatform:  {cost:{m:600,c:0},  effect:'defense', icon:'🛡', label:'Defense Platform',desc:'+20 defense per level'},
+  WarpGate:     {cost:{m:800,c:0},  effect:'warp',    icon:'🌀', label:'Warp Gate',       desc:'Instant miner travel'},
+};
+
+const G={
+  planets:[],asteroids:[],fleets:[],missiles:[],
+  selectedObj:null,
+  mode:'normal', // normal|sendfleet|mine|missile|warpgate
+  srcPlanet:null,
+  tick:0, speed:1,
+  aiTurn:0, aiStrategy:'EXPAND',
+  aiTimer:0,
+  // global player resources (pooled from all player planets)
+  metal:50000, crystal:25000, energy:2000,
+  missiles_inv:3,
+  allObjects(){ return [...this.planets,...this.asteroids]; },
+};
+
+function ownerColor(o){ return o==='player'?'#00ffaa':o==='enemy'?'#ff2255':'#ffcc00'; }
+function ownerGlow(o){ return o==='player'?'#00ffaa':o==='enemy'?'#ff2255':'#ffcc00'; }
+
+// ═══════════════════════════════════════════════════════════════
+//  MAP GENERATION
+// ═══════════════════════════════════════════════════════════════
+const PNAMES=['Kepler','Solus','Vega','Orion','Lyra','Cygnus','Draco','Hydra','Sirius','Altair'];
+const PCOLS =['#3d6fff','#ff6633','#33dd88','#ff44cc','#ffaa33','#44aaff','#cc44ff','#44ffcc','#ff8844','#44ccff'];
+
+function rnd(a,b){return Math.random()*(b-a)+a;}
+function ri(a,b){return Math.floor(rnd(a,b+1));}
+function dist(a,b){return Math.hypot(b.x-a.x,b.y-a.y);}
+
+function genPlanets(){
+  const W=innerWidth,H=innerHeight;
+  const positions=[
+    [W*.1,H*.28],[W*.22,H*.72],[W*.38,H*.16],[W*.52,H*.5],[W*.66,H*.18],
+    [W*.79,H*.66],[W*.89,H*.28],[W*.44,H*.82],[W*.71,H*.86],[W*.14,H*.82],
+  ];
+  positions.forEach(([x,y],i)=>{
+    const owner=i===0||i===1?'player':i<=3?'neutral':i<=6?'enemy':'neutral';
+    const bldgs={MetalMine:0,CrystalMine:0,Generator:0,Shipyard:0,DefPlatform:0,WarpGate:0};
+    if(owner==='player'){bldgs.MetalMine=1;bldgs.Generator=1;}
+    if(owner==='enemy'){bldgs.MetalMine=2;bldgs.Generator=2;bldgs.Shipyard=1;bldgs.DefPlatform=1;}
+
+    G.planets.push({
+      type:'planet',id:'p'+i,name:PNAMES[i],x,y,owner,
+      radius:ri(22,36), color:PCOLS[i],
+      population:ri(100,500),
+      defenses:ri(0,owner==='enemy'?80:30),
+      bldgs,
+      // Resources stored ON planet (enemy uses these)
+      metal:ri(200,600), crystal:ri(100,300), energy:0,
+      buildQueue:[],
+      orbitingFleets:[],
+      defenseStations: owner==='enemy'?[mkStation(x,y,'enemy')]:[],
+      missileStock: owner==='player'?ri(1,3):ri(0,2),
+      angle:rnd(0,Math.PI*2),
+      _glowPhase:rnd(0,Math.PI*2),
+      _ringPhase:rnd(0,Math.PI*2),
+    });
+  });
+}
+
+function genAsteroids(){
+  const W=innerWidth,H=innerHeight;
+  [[W*.32,H*.42],[W*.6,H*.55],[W*.26,H*.56],[W*.76,H*.4],[W*.5,H*.28],[W*.86,H*.5]]
+  .forEach(([x,y],i)=>{
+    G.asteroids.push({
+      type:'asteroid',id:'a'+i,
+      name:'Asteroid '+String.fromCharCode(65+i),
+      x,y,owner:'neutral',
+      metal:ri(400,1000), crystal:ri(200,600),
+      radius:ri(14,22), angle:rnd(0,Math.PI*2),
+      orbitingFleets:[],defenseStations:[],
+      isMining:false,
+      _spinSpeed:rnd(.002,.006)*(Math.random()>.5?1:-1),
+    });
+  });
+}
+
+function mkStation(px,py,owner){
+  const angle=rnd(0,Math.PI*2), orbitR=ri(52,80);
+  return{
+    owner,hp:200,maxHp:200,atk:30,
+    angle,orbitR,orbitSpd:.007,
+    x:px+Math.cos(angle)*orbitR,
+    y:py+Math.sin(angle)*orbitR,
+    px,py, fireTimer:0,
+    laserTarget:null,laserAlpha:0,
+    _phase:rnd(0,Math.PI*2),
+  };
+}
+
+function mkFleet(owner,x,y,ships){
+  return{
+    type:'fleet',id:'fl'+Date.now()+Math.random(),
+    owner,x,y,ships:{...ships},
+    traveling:false,targetX:x,targetY:y,
+    targetObj:null,startX:x,startY:y,
+    trail:[],_age:0,
+  };
+}
+
+function spawnStartFleets(){
+  const p0=G.planets[0];
+  const f0=mkFleet('player',p0.x,p0.y,{Fighter:3,Scout:2});
+  p0.orbitingFleets.push(f0); G.fleets.push(f0);
+  const p1=G.planets[1];
+  const f1=mkFleet('player',p1.x,p1.y,{Fighter:2,Miner:1});
+  p1.orbitingFleets.push(f1); G.fleets.push(f1);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RENDERING  (game canvas cleared each frame)
+// ═══════════════════════════════════════════════════════════════
+function renderGame(t){
+  ctx.clearRect(0,0,gameC.width,gameC.height);
+  renderAsteroids(t);
+  renderPlanets(t);
+  renderFleets(t);
+  renderMissiles(t);
+}
+
+// ── PLANET ───────────────────────────────────────────────────
+function renderPlanets(t){
+  G.planets.forEach(pl=>{
+    const oc=ownerColor(pl.owner);
+    pl.angle+=.0015*G.speed;
+    pl._glowPhase+=.018*G.speed;
+
+    // Outer glow atmosphere
+    const glowR=pl.radius*2.8+Math.sin(pl._glowPhase)*4;
+    const gAtm=ctx.createRadialGradient(pl.x,pl.y,pl.radius*.5,pl.x,pl.y,glowR);
+    gAtm.addColorStop(0,hexAlpha(oc,.16));
+    gAtm.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=gAtm;
+    ctx.beginPath(); ctx.arc(pl.x,pl.y,glowR,0,Math.PI*2); ctx.fill();
+
+    // Planet body
+    const gBody=ctx.createRadialGradient(
+      pl.x-pl.radius*.35,pl.y-pl.radius*.35,0,
+      pl.x,pl.y,pl.radius
+    );
+    gBody.addColorStop(0,lighten(pl.color,55));
+    gBody.addColorStop(.55,pl.color);
+    gBody.addColorStop(1,darken(pl.color,55));
+    ctx.beginPath(); ctx.arc(pl.x,pl.y,pl.radius,0,Math.PI*2);
+    ctx.fillStyle=gBody; ctx.fill();
+
+    // Atmosphere rim
+    ctx.beginPath(); ctx.arc(pl.x,pl.y,pl.radius+2.5,0,Math.PI*2);
+    ctx.strokeStyle=hexAlpha(oc,.6); ctx.lineWidth=2; ctx.stroke();
+
+    // Orbit ring
+    if(pl.owner!=='neutral'){
+      pl._ringPhase+=.008*G.speed;
+      ctx.beginPath(); ctx.arc(pl.x,pl.y,pl.radius+14,0,Math.PI*2);
+      ctx.strokeStyle=hexAlpha(oc,.2); ctx.lineWidth=1;
+      ctx.setLineDash([5,9]); ctx.lineDashOffset=-pl._ringPhase*18;
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // Selection ring
+    if(G.selectedObj===pl){
+      const selA=.55+.45*Math.sin(t*.004);
+      ctx.beginPath(); ctx.arc(pl.x,pl.y,pl.radius+24,0,Math.PI*2);
+      ctx.strokeStyle=hexAlpha('#ffffff',selA); ctx.lineWidth=1.5; ctx.stroke();
+    }
+
+    // Warp gate halo
+    if(pl.bldgs.WarpGate>0){
+      const wa=.4+.3*Math.sin(t*.006);
+      ctx.beginPath(); ctx.arc(pl.x,pl.y,pl.radius+32,0,Math.PI*2);
+      ctx.strokeStyle=hexAlpha('#a855f7',wa); ctx.lineWidth=2;
+      ctx.setLineDash([6,5]); ctx.lineDashOffset=-t*.02;
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // Name label
+    ctx.font=`600 11px 'Exo 2'`; ctx.textAlign='center';
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    ctx.fillText(pl.name,pl.x,pl.y+pl.radius+16);
+
+    // Owner dot
+    ctx.beginPath(); ctx.arc(pl.x,pl.y-pl.radius-9,4.5,0,Math.PI*2);
+    ctx.fillStyle=oc;
+    ctx.shadowColor=oc; ctx.shadowBlur=8; ctx.fill(); ctx.shadowBlur=0;
+
+    // Build queue arc
+    if(pl.buildQueue.length&&pl.owner==='player'){
+      const q=pl.buildQueue[0];
+      const prog=q.elapsed/q.total;
+      ctx.beginPath();
+      ctx.arc(pl.x,pl.y,pl.radius+6,-Math.PI/2,-Math.PI/2+prog*Math.PI*2);
+      ctx.strokeStyle='#00d4ff'; ctx.lineWidth=2.5; ctx.stroke();
+    }
+
+    // Defense stations
+    pl.defenseStations.forEach(st=>renderStation(st,t));
+
+    // Orbiting fleet dots
+    pl.orbitingFleets.forEach((fl,idx)=>{
+      const a=t*.0008+idx*(Math.PI*2/Math.max(1,pl.orbitingFleets.length));
+      const r=pl.radius+34+idx*10;
+      fl.x=pl.x+Math.cos(a)*r; fl.y=pl.y+Math.sin(a)*r;
+      const foc=ownerColor(fl.owner);
+      ctx.beginPath(); ctx.arc(fl.x,fl.y,5,0,Math.PI*2);
+      ctx.fillStyle=foc; ctx.shadowColor=foc; ctx.shadowBlur=6; ctx.fill(); ctx.shadowBlur=0;
+      ctx.font=`500 9px 'Share Tech Mono'`; ctx.textAlign='left';
+      ctx.fillStyle='rgba(255,255,255,.85)';
+      ctx.fillText(shipCount(fl),fl.x+7,fl.y+3);
+    });
+  });
+}
+
+// ── STATION ──────────────────────────────────────────────────
+function renderStation(st,t){
+  st.angle+=st.orbitSpd*G.speed;
+  st.x=st.px+Math.cos(st.angle)*st.orbitR;
+  st.y=st.py+Math.sin(st.angle)*st.orbitR;
+
+  const oc=ownerColor(st.owner);
+  ctx.save(); ctx.translate(st.x,st.y); ctx.rotate(st.angle*1.8);
+  // 4-arm cross shape
+  for(let i=0;i<4;i++){
+    const a=i*Math.PI/2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*9,Math.sin(a)*9);
+    ctx.lineTo(Math.cos(a+Math.PI/4)*4,Math.sin(a+Math.PI/4)*4);
+    ctx.strokeStyle=oc; ctx.lineWidth=1.8; ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(0,0,4.5,0,Math.PI*2);
+  ctx.fillStyle=hexAlpha(oc,.9); ctx.fill();
+  ctx.restore();
+
+  // HP micro-bar
+  const hf=st.hp/st.maxHp;
+  ctx.fillStyle='#111'; ctx.fillRect(st.x-10,st.y+11,20,3);
+  ctx.fillStyle=hf>.5?'#00ffaa':'#ff9900';
+  ctx.fillRect(st.x-10,st.y+11,20*hf,3);
+}
+
+// ── ASTEROID ─────────────────────────────────────────────────
+function renderAsteroids(t){
+  G.asteroids.forEach(ast=>{
+    ast.angle+=ast._spinSpeed*G.speed;
+    const oc=ownerColor(ast.owner);
+
+    // Rotating polygon
+    ctx.save(); ctx.translate(ast.x,ast.y); ctx.rotate(ast.angle);
+    ctx.beginPath();
+    for(let i=0;i<8;i++){
+      const a=(i/8)*Math.PI*2;
+      const rad=ast.radius*(.78+.22*Math.sin(i*3.3+.4));
+      i?ctx.lineTo(Math.cos(a)*rad,Math.sin(a)*rad):ctx.moveTo(Math.cos(a)*rad,Math.sin(a)*rad);
+    }
+    ctx.closePath();
+    ctx.fillStyle='#2a2a3e'; ctx.fill();
+    ctx.strokeStyle='#555580'; ctx.lineWidth=1; ctx.stroke();
+    ctx.restore();
+
+    // Mining pulse ring
+    if(ast.isMining){
+      const mp=.5+.5*Math.sin(t*.012);
+      ctx.beginPath(); ctx.arc(ast.x,ast.y,ast.radius+10+mp*5,0,Math.PI*2);
+      ctx.strokeStyle=hexAlpha('#88ccff',.55+.3*mp); ctx.lineWidth=1.5; ctx.stroke();
+    }
+
+    // Owner dot
+    ctx.beginPath(); ctx.arc(ast.x,ast.y-ast.radius-9,3.5,0,Math.PI*2);
+    ctx.fillStyle=oc; ctx.shadowColor=oc; ctx.shadowBlur=6; ctx.fill(); ctx.shadowBlur=0;
+
+    // Selection
+    if(G.selectedObj===ast){
+      ctx.beginPath(); ctx.arc(ast.x,ast.y,ast.radius+18,0,Math.PI*2);
+      ctx.strokeStyle=hexAlpha('#ffffff',.5+.4*Math.sin(t*.004));
+      ctx.lineWidth=1.5; ctx.stroke();
+    }
+
+    // Labels
+    ctx.font=`500 10px 'Exo 2'`; ctx.textAlign='center';
+    ctx.fillStyle='#8890aa'; ctx.fillText(ast.name,ast.x,ast.y+ast.radius+14);
+    ctx.font=`10px 'Share Tech Mono'`;
+    ctx.fillStyle='#88ccff'; ctx.fillText('M:'+Math.floor(ast.metal),ast.x-18,ast.y+ast.radius+25);
+    ctx.fillStyle='#cc88ff'; ctx.fillText('C:'+Math.floor(ast.crystal),ast.x+18,ast.y+ast.radius+25);
+  });
+}
+
+// ── FLEETS ───────────────────────────────────────────────────
+function renderFleets(t){
+  G.fleets.forEach(fl=>{
+    if(!fl.traveling) return;
+    const oc=ownerColor(fl.owner);
+    const dx=fl.targetX-fl.startX, dy=fl.targetY-fl.startY;
+    const angle=Math.atan2(dy,dx);
+
+    // Trail
+    fl.trail.push({x:fl.x,y:fl.y,t:Date.now()});
+    if(fl.trail.length>24) fl.trail.shift();
+    for(let i=1;i<fl.trail.length;i++){
+      const a=(i/fl.trail.length)*.45;
+      ctx.beginPath();
+      ctx.moveTo(fl.trail[i-1].x,fl.trail[i-1].y);
+      ctx.lineTo(fl.trail[i].x,fl.trail[i].y);
+      ctx.strokeStyle=hexAlpha(oc,a);
+      ctx.lineWidth=1.5; ctx.stroke();
+    }
+
+    // Arrow body
+    ctx.save(); ctx.translate(fl.x,fl.y); ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(13,0); ctx.lineTo(-9,-6); ctx.lineTo(-5,0); ctx.lineTo(-9,6);
+    ctx.closePath();
+    ctx.fillStyle=oc;
+    ctx.shadowColor=oc; ctx.shadowBlur=10; ctx.fill(); ctx.shadowBlur=0;
+    ctx.restore();
+
+    // Count badge
+    ctx.font=`700 10px 'Share Tech Mono'`; ctx.textAlign='center';
+    ctx.fillStyle='#fff'; ctx.fillText(shipCount(fl),fl.x,fl.y-15);
+
+    // Engine particle trail (every 4 frames)
+    if(G.tick%4===0) spawnBurst(fl.x-Math.cos(angle)*12,fl.y-Math.sin(angle)*12,oc,2,.8);
+  });
+}
+
+// ── MISSILES ─────────────────────────────────────────────────
+function renderMissiles(){
+  G.missiles.forEach(ms=>{
+    ms._trail=ms._trail||[];
+    ms._trail.push({x:ms.x,y:ms.y});
+    if(ms._trail.length>14) ms._trail.shift();
+
+    for(let i=1;i<ms._trail.length;i++){
+      const a=(i/ms._trail.length)*.65;
+      ctx.beginPath();
+      ctx.moveTo(ms._trail[i-1].x,ms._trail[i-1].y);
+      ctx.lineTo(ms._trail[i].x,ms._trail[i].y);
+      ctx.strokeStyle=`rgba(255,90,0,${a})`; ctx.lineWidth=2; ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(ms.x,ms.y,4.5,0,Math.PI*2);
+    ctx.fillStyle='#ff5500';
+    ctx.shadowColor='#ff3300'; ctx.shadowBlur=12; ctx.fill(); ctx.shadowBlur=0;
+  });
+}
+
+// Color helpers
+function hexToRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+function lighten(h,a){const[r,g,b]=hexToRgb(h);return `rgb(${Math.min(255,r+a)},${Math.min(255,g+a)},${Math.min(255,b+a)})`;}
+function darken(h,a){const[r,g,b]=hexToRgb(h);return `rgb(${Math.max(0,r-a)},${Math.max(0,g-a)},${Math.max(0,b-a)})`;}
+
+// ═══════════════════════════════════════════════════════════════
+//  PRODUCTION SYSTEM  (Building-driven, energy-gated)
+// ═══════════════════════════════════════════════════════════════
+const PROD_INTERVAL=3000; // ms = 1 "cycle"
+let lastProd=0;
+
+function calcProduction(pl){
+  const b=pl.bldgs;
+  const energyProd = b.Generator*100;
+  const energyDemand= b.MetalMine*80 + b.CrystalMine*80;
+  const eff = energyDemand===0 ? 1 : Math.min(1, energyProd/energyDemand);
+  return{
+    metal:   b.MetalMine   * 50 * eff,
+    crystal: b.CrystalMine * 30 * eff,
+    energy:  energyProd - energyDemand,
+    eff,
+  };
+}
+
+function runProduction(now){
+  if(now-lastProd < PROD_INTERVAL/G.speed) return;
+  lastProd=now;
+
+  let totMetal=0, totCrystal=0, totEnergy=0;
+  G.planets.filter(p=>p.owner==='player').forEach(pl=>{
+    const prod=calcProduction(pl);
+    totMetal   += prod.metal;
+    totCrystal += prod.crystal;
+    totEnergy  += prod.energy;
+    pl.metal   += prod.metal;
+    pl.crystal += prod.crystal;
+  });
+  G.metal   += totMetal;
+  G.crystal += totCrystal;
+  G.energy  += totEnergy;
+
+  // Enemy production (stored locally on planet)
+  G.planets.filter(p=>p.owner==='enemy').forEach(pl=>{
+    const prod=calcProduction(pl);
+    pl.metal   += prod.metal;
+    pl.crystal += prod.crystal;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BUILDING SYSTEM
+// ═══════════════════════════════════════════════════════════════
+function buildBuilding(planetId, type){
+  const pl=G.planets.find(p=>p.id===planetId); if(!pl) return;
+  const def=BLDG[type];
+  if(type==='WarpGate'&&pl.bldgs.WarpGate>0){notify('Warp gate already built!','#ff9900');return;}
+  if(G.metal < def.cost.m){notify('Not enough metal!','#ff2255');return;}
+  if(G.crystal < def.cost.c){notify('Not enough crystal!','#ff2255');return;}
+  G.metal   -= def.cost.m;
+  G.crystal -= def.cost.c;
+  pl.bldgs[type]++;
+  notify(`${def.label} built on ${pl.name}!`, '#00ffaa');
+  spawnBurst(pl.x, pl.y-pl.radius-10, '#00ffaa', 12, 2);
+  spawnFloat(pl.x, pl.y-pl.radius-20, `+${def.label}`, '#00ffaa');
+  renderInfo();
+}
+window.buildBuilding=buildBuilding;
+
+// ═══════════════════════════════════════════════════════════════
+//  SHIPYARD
+// ═══════════════════════════════════════════════════════════════
+function buildShip(planetId, type){
+  const pl=G.planets.find(p=>p.id===planetId); if(!pl) return;
+  if(!pl.bldgs.Shipyard){notify('No shipyard on this planet!','#ff9900');return;}
+  const s=SHIP[type];
+  if(G.metal < s.cost.m || G.crystal < s.cost.c){notify('Not enough resources!','#ff2255');return;}
+  G.metal   -= s.cost.m;
+  G.crystal -= s.cost.c;
+  pl.buildQueue.push({type, elapsed:0, total:s.time*60, count:1});
+  notify(`Building ${type}…`,'#00d4ff');
+  renderInfo();
+}
+window.buildShip=buildShip;
+
+function processBuildQueues(dt){
+  G.planets.forEach(pl=>{
+    if(!pl.buildQueue.length) return;
+    const q=pl.buildQueue[0];
+    q.elapsed+=dt*G.speed;
+    if(q.elapsed>=q.total){
+      pl.buildQueue.shift();
+      finishBuild(pl,q);
+    }
+  });
+}
+
+function finishBuild(pl,q){
+  if(q.type==='Missile'){
+    pl.missileStock=(pl.missileStock||0)+1;
+    if(pl.owner==='player'){G.missiles_inv++;notify('Missile ready!','#ff9900');}
+    return;
+  }
+  const fl=mkFleet(pl.owner,pl.x,pl.y,{[q.type]:1});
+  pl.orbitingFleets.push(fl); G.fleets.push(fl);
+  if(pl.owner==='player') notify(`${q.type} ready!`,'#00ffaa');
+  spawnBurst(pl.x,pl.y,ownerGlow(pl.owner),8,2);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FLEET SYSTEM
+// ═══════════════════════════════════════════════════════════════
+function updateFleets(dt){
+  G.fleets.forEach(fl=>{
+    if(!fl.traveling) return;
+    const dx=fl.targetX-fl.x, dy=fl.targetY-fl.y, d=Math.hypot(dx,dy);
+    const spd=SHIP.Fighter.spd*G.speed*dt*.055;
+    if(d<8){
+      fl.x=fl.targetX; fl.y=fl.targetY;
+      fl.traveling=false; fl.trail=[];
+      arriveFleet(fl);
+    } else {
+      fl.x+=(dx/d)*spd; fl.y+=(dy/d)*spd;
+    }
+  });
+}
+
+function arriveFleet(fl){
+  const tgt=fl.targetObj; if(!tgt) return;
+  if(tgt.owner!==fl.owner && tgt.owner!=='neutral'){
+    startBattle(fl,tgt);
+  } else if(tgt.owner==='neutral'){
+    tgt.owner=fl.owner;
+    tgt.orbitingFleets.push(fl);
+    spawnBurst(tgt.x,tgt.y,ownerGlow(fl.owner),20,3);
+    spawnRing(tgt.x,tgt.y,ownerGlow(fl.owner));
+    if(fl.owner==='player') notify(`${tgt.name} captured!`,'#00ffaa');
+    else notify(`Enemy captured ${tgt.name}!`,'#ff2255');
+  } else {
+    tgt.orbitingFleets.push(fl);
+  }
+  G.fleets=G.fleets.filter(f=>f!==fl);
+}
+
+function sendFleet(srcPl, tgt){
+  if(!srcPl||!tgt||srcPl===tgt) return;
+  if(!srcPl.orbitingFleets.length){notify('No fleet to send!','#ff9900');return;}
+  const fl=srcPl.orbitingFleets.shift();
+  fl.traveling=true;
+  fl.startX=srcPl.x; fl.startY=srcPl.y;
+  fl.x=srcPl.x; fl.y=srcPl.y;
+  fl.targetX=tgt.x; fl.targetY=tgt.y;
+  fl.targetObj=tgt; fl.trail=[];
+  G.fleets.push(fl);
+  notify(`Fleet → ${tgt.name}`,'#00d4ff');
+  spawnBurst(srcPl.x,srcPl.y,ownerGlow(srcPl.owner),10,2.5);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MINING
+// ═══════════════════════════════════════════════════════════════
+function instantMine(ast){
+  const m=Math.min(ast.metal,150), c=Math.min(ast.crystal,75);
+  ast.metal-=m; ast.crystal-=c;
+  G.metal+=m; G.crystal+=c;
+  notify(`+${Math.floor(m)} Metal +${Math.floor(c)} Crystal`,'#88ccff');
+  spawnBurst(ast.x,ast.y,'#88ccff',14,2.5);
+  spawnFloat(ast.x,ast.y-ast.radius,`+${Math.floor(m)}M`,'#88ccff');
+  spawnFloat(ast.x+20,ast.y-ast.radius,`+${Math.floor(c)}C`,'#cc88ff');
+}
+window.instantMine=instantMine;
+
+function sendMiner(srcPl, ast){
+  const fl=srcPl.orbitingFleets.find(f=>f.ships.Miner>0);
+  if(!fl){notify('No miner fleet!','#ff9900');return;}
+  srcPl.orbitingFleets=srcPl.orbitingFleets.filter(f=>f!==fl);
+  if(srcPl.bldgs.WarpGate>0){
+    // Instant warp
+    notify('Warp gate: instant mining!','#a855f7');
+    spawnBurst(srcPl.x,srcPl.y,'#a855f7',16,3);
+    spawnBurst(ast.x,ast.y,'#a855f7',16,3);
+    const m=Math.min(ast.metal,220), c=Math.min(ast.crystal,110);
+    ast.metal-=m; ast.crystal-=c; G.metal+=m; G.crystal+=c;
+    spawnFloat(ast.x,ast.y-ast.radius,`+${Math.floor(m)}M`,'#a855f7');
+    fl.x=srcPl.x; fl.y=srcPl.y;
+    srcPl.orbitingFleets.push(fl);
+  } else {
+    fl.traveling=true; fl.startX=srcPl.x; fl.startY=srcPl.y;
+    fl.x=srcPl.x; fl.y=srcPl.y;
+    fl.targetX=ast.x; fl.targetY=ast.y; fl.targetObj=ast;
+    fl.trail=[]; fl._isMiner=true; fl._miningHome=srcPl;
+    ast.isMining=true; G.fleets.push(fl);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DEFENSE STATIONS
+// ═══════════════════════════════════════════════════════════════
+function updateStations(dt){
+  G.allObjects().forEach(obj=>{
+    obj.defenseStations.forEach(st=>{
+      // Find nearest enemy fleet
+      let nearest=null, nearD=240;
+      G.fleets.forEach(fl=>{
+        if(fl.owner!==st.owner){const d=dist(st,fl);if(d<nearD){nearD=d;nearest=fl;}}
+      });
+      // Also check orbiting enemy fleets
+      if(!nearest){
+        obj.orbitingFleets.forEach(fl=>{if(fl.owner!==st.owner){nearest=fl;}});
+      }
+      st.fireTimer-=dt*G.speed;
+      if(nearest&&st.fireTimer<=0){
+        st.fireTimer=65;
+        spawnLaser(st.x,st.y,nearest.x,nearest.y,`rgba(255,60,60,1)`);
+        // Damage
+        const keys=Object.keys(nearest.ships);
+        if(keys.length){
+          const k=keys[ri(0,keys.length-1)];
+          nearest.ships[k]--;
+          if(nearest.ships[k]<=0) delete nearest.ships[k];
+        }
+        if(!Object.keys(nearest.ships).length){
+          spawnBurst(nearest.x,nearest.y,ownerGlow(nearest.owner),18,3);
+          spawnRing(nearest.x,nearest.y,'#ff2255');
+          G.fleets=G.fleets.filter(f=>f!==nearest);
+        }
+      }
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MISSILES
+// ═══════════════════════════════════════════════════════════════
+function fireMissile(srcPl, tgt){
+  if(!srcPl.missileStock||srcPl.missileStock<1){notify('No missiles!','#ff2255');return;}
+  srcPl.missileStock--;
+  if(srcPl.owner==='player') G.missiles_inv--;
+  G.missiles.push({
+    x:srcPl.x, y:srcPl.y,
+    targetX:tgt.x, targetY:tgt.y, targetObj:tgt,
+    owner:srcPl.owner, _trail:[]
+  });
+  notify('Missile launched!','#ff9900');
+  spawnBurst(srcPl.x,srcPl.y,'#ff5500',12,3);
+}
+
+function updateMissiles2(dt){
+  G.missiles=G.missiles.filter(ms=>{
+    const dx=ms.targetX-ms.x, dy=ms.targetY-ms.y, d=Math.hypot(dx,dy);
+    const spd=SHIP.Missile.spd*G.speed*dt*.07;
+    if(d<12){
+      missileImpact(ms);
+      spawnBurst(ms.x,ms.y,'#ff5500',22,4);
+      spawnRing(ms.x,ms.y,'#ff5500');
+      spawnRing(ms.x,ms.y,'#ff9900');
+      return false;
+    }
+    ms.x+=(dx/d)*spd; ms.y+=(dy/d)*spd;
+    return true;
+  });
+}
+
+function missileImpact(ms){
+  const tgt=ms.targetObj; if(!tgt) return;
+  tgt.defenses=Math.max(0,(tgt.defenses||0)-70);
+  tgt.defenseStations=tgt.defenseStations.filter(st=>{st.hp-=90;return st.hp>0;});
+  tgt.orbitingFleets.forEach(fl=>{
+    if(fl.owner!==ms.owner){
+      const k=Object.keys(fl.ships)[0];
+      if(k){fl.ships[k]=Math.max(0,fl.ships[k]-2);if(!fl.ships[k])delete fl.ships[k];}
+    }
+  });
+  if(ms.owner==='player') notify('Missile impact!','#ff9900');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COMBAT
+// ═══════════════════════════════════════════════════════════════
+function startBattle(atk, tgt){
+  const log=[];
+  let pS={}, eS={};
+  if(atk.owner==='player'){
+    pS={...atk.ships};
+    tgt.orbitingFleets.filter(f=>f.owner==='enemy').forEach(fl=>{
+      Object.entries(fl.ships).forEach(([k,v])=>pS[k]=(pS[k]||0)+v); // ← wrong, fix:
+    });
+    // reset pS then fill correctly
+    pS={...atk.ships};
+    tgt.orbitingFleets.filter(f=>f.owner==='enemy').forEach(fl=>{
+      Object.entries(fl.ships).forEach(([k,v])=>eS[k]=(eS[k]||0)+v);
+    });
+    eS.Defense=Math.ceil((tgt.defenses||0)/25);
+    if(!eS.Defense) delete eS.Defense;
+  } else {
+    eS={...atk.ships};
+    tgt.orbitingFleets.filter(f=>f.owner==='player').forEach(fl=>{
+      Object.entries(fl.ships).forEach(([k,v])=>pS[k]=(pS[k]||0)+v);
+    });
+    pS.Defense=Math.ceil((tgt.defenses||0)/25);
+    if(!pS.Defense) delete pS.Defense;
+  }
+
+  let round=0;
+  while(round<20 && shTotal(pS)>0 && shTotal(eS)>0){
+    const pA=fleetAtk(pS), eA=fleetAtk(eS);
+    dmgFleet(pS,Math.max(1,Math.floor(eA/32)));
+    dmgFleet(eS,Math.max(1,Math.floor(pA/32)));
+    log.push(`Rnd ${round+1}  P:${pA}atk → E  E:${eA}atk → P`);
+    round++;
+  }
+
+  const won=shTotal(pS)>0;
+  showBattle(pS,eS,log,won);
+
+  // FX at target
+  spawnBurst(tgt.x,tgt.y,won?ownerGlow(atk.owner):'#ff2255',24,4);
+  spawnRing(tgt.x,tgt.y,won?ownerGlow(atk.owner):'#ff2255');
+
+  if(won){
+    tgt.owner=atk.owner; tgt.defenses=0;
+    tgt.orbitingFleets=tgt.orbitingFleets.filter(f=>f.owner===atk.owner);
+    atk.ships=pS; delete atk.ships.Defense;
+    tgt.orbitingFleets.push(atk);
+    if(atk.owner==='player') notify(`${tgt.name} conquered!`,'#00ffaa');
+    else notify(`Enemy took ${tgt.name}!`,'#ff2255');
+  } else {
+    tgt.defenses=Math.max(0,tgt.defenses-40);
+    if(atk.owner==='player') notify('Attack repelled!','#ff9900');
+  }
+  G.fleets=G.fleets.filter(f=>f!==atk);
+}
+
+function fleetAtk(ships){
+  return Object.entries(ships).reduce((s,[k,v])=>{
+    const d=SHIP[k]; return s+(d?d.atk*v:18*v);
+  },0);
+}
+function shTotal(s){return Object.values(s).reduce((a,b)=>a+b,0);}
+function dmgFleet(ships,dmg){
+  let r=dmg;
+  const keys=Object.keys(ships);
+  while(r>0&&keys.length){
+    const k=keys[ri(0,keys.length-1)];
+    ships[k]--; if(ships[k]<=0){delete ships[k];keys.splice(keys.indexOf(k),1);} r--;
+  }
+}
+
+function showBattle(pS,eS,log,won){
+  const ov=document.getElementById('battle');
+  document.getElementById('b-player').innerHTML=
+    Object.entries(pS).map(([k,v])=>`<div class="qitem"><span>${SHIP[k]?.icon||'◈'} ${k}</span><span>${v}</span></div>`).join('');
+  document.getElementById('b-enemy').innerHTML=
+    Object.entries(eS).map(([k,v])=>`<div class="qitem"><span>${SHIP[k]?.icon||'◈'} ${k}</span><span>${v}</span></div>`).join('');
+  document.getElementById('b-log').innerHTML=log.slice(-5).join('<br>');
+  const r=document.getElementById('b-res');
+  r.className='bres '+(won?'bwin':'blose');
+  r.textContent=won?'— VICTORY —':'— DEFEAT —';
+  ov.style.display='block';
+  gsap.fromTo(ov,{opacity:0,scale:.88},{opacity:1,scale:1,duration:.35,ease:'back.out(1.5)'});
+  setTimeout(()=>gsap.to(ov,{opacity:0,scale:.9,duration:.3,onComplete:()=>ov.style.display='none'}),4200);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  AI SYSTEM
+// ═══════════════════════════════════════════════════════════════
+const AI_INTERVAL=9000;
+let aiCooldown=AI_INTERVAL;
+
+function runAI(){
+  G.aiTurn++;
+  document.getElementById('ai-turn').textContent=G.aiTurn;
+  const eP=G.planets.filter(p=>p.owner==='enemy');
+  const nP=G.planets.filter(p=>p.owner==='neutral');
+  const pP=G.planets.filter(p=>p.owner==='player');
+  const nA=G.asteroids.filter(a=>a.owner==='neutral');
+
+  if(eP.length<=2) G.aiStrategy='EXPAND';
+  else if(pP.length>=3) G.aiStrategy='ATTACK';
+  else G.aiStrategy='DEFEND';
+  document.getElementById('ai-strat').textContent=G.aiStrategy;
+
+  eP.forEach(ep=>{
+    // Build
+    if(ep.bldgs.Shipyard && ep.buildQueue.length<2){
+      const t=Math.random()>.45?'Fighter':'Destroyer';
+      ep.buildQueue.push({type:t,elapsed:0,total:SHIP[t].time*60,count:1});
+    }
+    if(ep.bldgs.MetalMine<3 && ep.metal>200) ep.bldgs.MetalMine++;
+    if(ep.bldgs.Generator<2 && ep.metal>150) ep.bldgs.Generator++;
+
+    const total=ep.orbitingFleets.reduce((s,fl)=>s+shipCount(fl),0);
+    if(total<3) return;
+
+    let tgt=null;
+    if(G.aiStrategy==='EXPAND') tgt=nP[0]||nA[0];
+    else if(G.aiStrategy==='ATTACK') tgt=pP[ri(0,Math.max(0,pP.length-1))];
+    else tgt=eP.find(p=>p!==ep&&!p.orbitingFleets.length)||pP[0];
+    if(!tgt) return;
+
+    const fl=ep.orbitingFleets.shift(); if(!fl) return;
+    fl.traveling=true; fl.startX=ep.x; fl.startY=ep.y;
+    fl.x=ep.x; fl.y=ep.y; fl.targetX=tgt.x; fl.targetY=tgt.y;
+    fl.targetObj=tgt; fl.trail=[]; G.fleets.push(fl);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  UI SYSTEM
+// ═══════════════════════════════════════════════════════════════
+function shipCount(fl){ return Object.values(fl.ships).reduce((s,v)=>s+v,0); }
+
+function updateHUD(){
+  document.getElementById('s-planets').textContent=G.planets.filter(p=>p.owner==='player').length;
+  document.getElementById('s-ast').textContent=G.asteroids.filter(a=>a.owner==='player').length;
+  document.getElementById('s-fleets').textContent=G.fleets.filter(f=>f.owner==='player').length;
+  document.getElementById('s-sta').textContent=G.planets.filter(p=>p.owner==='player').reduce((s,p)=>s+p.defenseStations.length,0);
+  document.getElementById('r-metal').textContent=Math.floor(G.metal);
+  document.getElementById('r-crystal').textContent=Math.floor(G.crystal);
+  document.getElementById('r-energy').textContent=Math.floor(G.energy);
+  document.getElementById('r-msls').textContent=G.missiles_inv;
+}
+
+function renderInfo(){
+  const obj=G.selectedObj;
+  const panel=document.getElementById('info');
+  const inner=document.getElementById('info-inner');
+  if(!obj){panel.classList.remove('show');return;}
+  panel.classList.add('show');
+  const oc=ownerColor(obj.owner);
+
+  let h=`<h3 style="color:${oc}">${obj.name}</h3>
+    <div class="otag" style="color:${oc}">${obj.owner.toUpperCase()}</div>`;
+
+  if(obj.type==='planet'){
+    // Stats
+    h+=`<div class="isec"><h4>PLANET</h4>
+      <div class="irow"><span class="l">Population</span><span class="v">${Math.floor(obj.population)}</span></div>
+      <div class="irow"><span class="l">Defenses</span><span class="v">${Math.floor(obj.defenses)}</span></div>
+      <div class="irow"><span class="l">Stations</span><span class="v">${obj.defenseStations.length}</span></div>
+      <div class="irow"><span class="l">Missiles</span><span class="v">${obj.missileStock||0}</span></div>
+    </div>`;
+
+    if(obj.owner==='player'){
+      // Production
+      const prod=calcProduction(obj);
+      const effPct=Math.round(prod.eff*100);
+      const effColor=prod.eff>=1?'#00ffaa':prod.eff>.5?'#ffdd44':'#ff2255';
+      h+=`<div class="isec"><h4>PRODUCTION / CYCLE</h4>
+        <div class="irow"><span class="l">Metal</span><span class="v" style="color:#88ccff">+${Math.round(prod.metal)}</span></div>
+        <div class="irow"><span class="l">Crystal</span><span class="v" style="color:#cc88ff">+${Math.round(prod.crystal)}</span></div>
+        <div class="irow"><span class="l">Energy</span><span class="v" style="color:#ffdd44">${prod.energy>=0?'+':''}${Math.round(prod.energy)}</span></div>
+        <div class="irow"><span class="l">Efficiency</span><span class="v" style="color:${effColor}">${effPct}%</span></div>
+        ${prod.eff<1?`<div class="ewarn">⚡ Need more generators!</div>`:''}
+      </div>`;
+
+      // Buildings
+      h+=`<div class="isec"><h4>BUILDINGS</h4>`;
+      Object.entries(BLDG).forEach(([k,def])=>{
+        const lvl=obj.bldgs[k]||0;
+        const isGate=k==='WarpGate';
+        const maxed=isGate&&lvl>0;
+        const canAfford=G.metal>=def.cost.m&&G.crystal>=def.cost.c;
+        h+=`<div class="irow">
+          <span class="l">${def.icon} ${def.label}</span>
+          <span class="v">${isGate?(lvl?'✓':'—'):('Lv'+lvl)}</span>
+        </div>`;
+        if(!maxed){
+          h+=`<button class="bbtn" ${!canAfford?'disabled':''} onclick="buildBuilding('${obj.id}','${k}')">
+            Build (${def.cost.m}M${def.cost.c?` ${def.cost.c}C`:''})
+          </button>`;
+        }
+      });
+      h+=`</div>`;
+
+      // Shipyard
+      if(obj.bldgs.Shipyard>0){
+        h+=`<div class="isec"><h4>SHIPYARD</h4>`;
+        Object.entries(SHIP).forEach(([n,s])=>{
+          const ok=G.metal>=s.cost.m&&G.crystal>=s.cost.c;
+          h+=`<button class="bbtn" ${!ok?'disabled':''} onclick="buildShip('${obj.id}','${n}')">
+            ${s.icon} ${n} (${s.cost.m}M ${s.cost.c}C)</button>`;
+        });
+        h+=`</div>`;
+
+        // Queue
+        if(obj.buildQueue.length){
+          h+=`<div class="isec"><h4>BUILD QUEUE</h4>`;
+          obj.buildQueue.forEach(q=>{
+            const pct=Math.min(100,Math.floor((q.elapsed/q.total)*100));
+            h+=`<div class="qitem"><span>${q.type}</span><span>${pct}%</span></div>
+              <div class="qprog"><div class="qpfill" style="width:${pct}%"></div></div>`;
+          });
+          h+=`</div>`;
+        }
+      }
+
+      // Fleet actions
+      h+=`<div class="isec"><h4>FLEET ACTIONS</h4>
+        <div class="faction-btns">
+          <button class="abtn g" onclick="setMode('sendfleet');G.srcPlanet='${obj.id}'">
+            <i class="fas fa-rocket"></i>Send Fleet</button>
+          <button class="abtn" onclick="setMode('mine');G.srcPlanet='${obj.id}'">
+            <i class="fas fa-hammer"></i>Mine</button>
+          <button class="abtn r" onclick="setMode('missile');G.srcPlanet='${obj.id}'">
+            <i class="fas fa-bomb"></i>Missile</button>
+          <button class="abtn p" onclick="buildBuilding('${obj.id}','WarpGate')">
+            <i class="fas fa-circle-nodes"></i>Warp Gate</button>
+        </div>
+      </div>`;
+
+    } else {
+      // Intel only
+      h+=`<div class="isec"><h4>INTEL</h4>
+        <div class="irow"><span class="l">Metal (est)</span><span class="v">${Math.floor(obj.metal)}</span></div>
+        <div class="irow"><span class="l">Crystal (est)</span><span class="v">${Math.floor(obj.crystal)}</span></div>
+        <div class="irow"><span class="l">Shipyard</span><span class="v">${obj.bldgs.Shipyard?'Yes':'No'}</span></div>
+        <div class="irow"><span class="l">Defenses</span><span class="v">${Math.floor(obj.defenses)}</span></div>
+        <div class="irow"><span class="l">Orbiting</span><span class="v">${obj.orbitingFleets.length} fleets</span></div>
+      </div>`;
+    }
+
+  } else if(obj.type==='asteroid'){
+    h+=`<div class="isec"><h4>DEPOSITS</h4>
+      <div class="irow"><span class="l">Metal</span><span class="v" style="color:#88ccff">${Math.floor(obj.metal)}</span></div>
+      <div class="irow"><span class="l">Crystal</span><span class="v" style="color:#cc88ff">${Math.floor(obj.crystal)}</span></div>
+      <div class="irow"><span class="l">Mining</span><span class="v">${obj.isMining?'⚙ Active':'—'}</span></div>
+    </div>`;
+    if(obj.owner!=='enemy'){
+      h+=`<div class="isec"><h4>ACTIONS</h4>
+        <button class="bbtn" onclick="instantMine(G.asteroids.find(a=>a.id==='${obj.id}'))">⚡ Instant Mine</button>
+        <button class="bbtn" onclick="doSendMiner('${obj.id}')">◉ Send Miners</button>
+      </div>`;
+    }
+  } else if(obj.type==='fleet'){
+    h+=`<div class="isec"><h4>SHIPS</h4>`;
+    Object.entries(obj.ships).forEach(([k,v])=>{
+      h+=`<div class="irow"><span class="l">${SHIP[k]?.icon||'◈'} ${k}</span><span class="v">${v}</span></div>
+        <div class="bbar"><div class="bfill" style="width:${Math.min(100,v*20)}%;background:${ownerColor(obj.owner)}"></div></div>`;
+    });
+    h+=`</div>`;
+  }
+
+  inner.innerHTML=h;
+}
+
+function doSendMiner(astId){
+  const ast=G.asteroids.find(a=>a.id===astId);
+  const src=G.planets.find(p=>p.owner==='player'&&p.orbitingFleets.some(f=>f.ships.Miner>0));
+  if(!src){notify('No miner fleet!','#ff9900');return;}
+  sendMiner(src,ast);
+}
+window.doSendMiner=doSendMiner;
+window.G=G;
+
+// Notifications via GSAP
+function notify(msg,color='#00d4ff'){
+  const c=document.getElementById('notifs');
+  const el=document.createElement('div');
+  el.className='notif'; el.textContent=msg;
+  el.style.borderColor=color+'55'; el.style.color=color;
+  c.appendChild(el);
+  gsap.fromTo(el,{opacity:0,y:-8},{opacity:1,y:0,duration:.28,ease:'power2.out'});
+  setTimeout(()=>gsap.to(el,{opacity:0,y:-8,duration:.28,onComplete:()=>el.remove()}),2600);
+}
+
+// Mode management
+function setMode(m){
+  G.mode=m;
+  const b=document.getElementById('modebanner');
+  if(m!=='normal'){
+    b.style.display='block';
+    const labels={sendfleet:'SELECT DESTINATION',mine:'SELECT ASTEROID',missile:'SELECT TARGET',warpgate:'SELECT PLANET'};
+    b.textContent='— '+labels[m]+' —';
+    gsap.fromTo(b,{opacity:0},{opacity:1,duration:.25});
+  } else {
+    gsap.to(b,{opacity:0,duration:.2,onComplete:()=>b.style.display='none'});
+  }
+}
+window.setMode=setMode;
+
+function setSpd(v){
+  G.speed=v;
+  document.querySelectorAll('.spbtn').forEach(b=>b.classList.remove('on'));
+  const ids={'0.5':'sp-.5','1':'sp-1','2':'sp-2','3':'sp-3'};
+  document.getElementById(ids[String(v)])?.classList.add('on');
+}
+window.setSpd=setSpd;
+
+// ═══════════════════════════════════════════════════════════════
+//  CLICK HANDLING
+// ═══════════════════════════════════════════════════════════════
+gameC.addEventListener('click',e=>{
+  const rect=gameC.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+
+  // Hit test planets
+  for(const pl of G.planets){
+    if(Math.hypot(mx-pl.x,my-pl.y)<pl.radius+10){
+      handleClick(pl); return;
+    }
+  }
+  // Hit test asteroids
+  for(const ast of G.asteroids){
+    if(Math.hypot(mx-ast.x,my-ast.y)<ast.radius+10){
+      handleClick(ast); return;
+    }
+  }
+  // Hit test traveling fleets
+  for(const fl of G.fleets){
+    if(fl.traveling&&Math.hypot(mx-fl.x,my-fl.y)<16){
+      G.selectedObj=fl; renderInfo(); return;
+    }
+  }
+  // Click empty = deselect
+  if(G.mode==='normal'){
+    G.selectedObj=null; renderInfo();
+  }
+});
+
+function handleClick(obj){
+  switch(G.mode){
+    case 'sendfleet':{
+      const src=G.planets.find(p=>p.id===G.srcPlanet)||
+                G.planets.find(p=>p.owner==='player'&&p.orbitingFleets.length>0);
+      sendFleet(src,obj);
+      setMode('normal'); break;
+    }
+    case 'mine':{
+      if(obj.type==='asteroid') instantMine(obj);
+      else {
+        // send miner from this planet
+        if(obj.type==='planet'&&obj.owner==='player') G.srcPlanet=obj.id;
+        else setMode('normal');
+      }
+      setMode('normal'); break;
+    }
+    case 'missile':{
+      const src=G.planets.find(p=>p.id===G.srcPlanet)||
+                G.planets.find(p=>p.owner==='player'&&(p.missileStock||0)>0);
+      if(src) fireMissile(src,obj);
+      else notify('No missile source!','#ff2255');
+      setMode('normal'); break;
+    }
+    case 'warpgate':{
+      if(obj.type==='planet'&&obj.owner==='player') buildBuilding(obj.id,'WarpGate');
+      setMode('normal'); break;
+    }
+    default:{
+      G.selectedObj=obj; G.srcPlanet=obj.id;
+      renderInfo();
+      gsap.fromTo('#info',{opacity:0,x:16},{opacity:1,x:0,duration:.25,ease:'power2.out'});
+    }
+  }
+}
+
+// Keyboard
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){setMode('normal');G.selectedObj=null;renderInfo();}
+  if(e.key==='s'||e.key==='S') setMode('sendfleet');
+  if(e.key==='m'||e.key==='M') setMode('mine');
+  if(e.key==='f'||e.key==='F') setMode('missile');
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  WIN / LOSE
+// ═══════════════════════════════════════════════════════════════
+let gameOver=false;
+function checkWin(){
+  if(gameOver) return;
+  if(!G.planets.some(p=>p.owner==='enemy')){
+    gameOver=true; showEnd('VICTORY','#00ffaa');
+  }
+  if(!G.planets.some(p=>p.owner==='player')){
+    gameOver=true; showEnd('DEFEAT','#ff2255');
+  }
+}
+function showEnd(txt,col){
+  const d=document.createElement('div');
+  d.style.cssText=`position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;background:rgba(0,1,13,.94);z-index:1000;font-family:'Exo 2',sans-serif;`;
+  d.innerHTML=`
+    <div style="font-size:64px;font-weight:900;color:${col};text-shadow:0 0 40px ${col};
+      letter-spacing:10px;margin-bottom:18px">${txt}</div>
+    <div style="color:#3a5070;font-size:14px;letter-spacing:4px;margin-bottom:28px;
+      font-family:'Share Tech Mono'">STELLAR DOMINION II</div>
+    <button onclick="location.reload()" style="
+      background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.4);
+      color:#00d4ff;font-family:'Share Tech Mono';font-size:12px;
+      letter-spacing:3px;padding:12px 32px;border-radius:5px;cursor:pointer;">
+      NEW GAME</button>`;
+  document.body.appendChild(d);
+  gsap.fromTo(d,{opacity:0},{opacity:1,duration:1.2});
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ANIMATED NEBULA DRIFT  (tweened radial offsets on bg)
+// ═══════════════════════════════════════════════════════════════
+// We re-render the bg canvas very slowly using GSAP ticker
+// to give a gentle parallax breathing effect without JS loop cost
+const nebDrift={x:0,y:0};
+gsap.to(nebDrift,{
+  x:innerWidth*.03, y:innerHeight*.025,
+  duration:18, repeat:-1, yoyo:true, ease:'sine.inOut',
+  onUpdate(){
+    // Only redraw nebulae (not stars — preserve them)
+    drawNebulaDrift();
+  }
+});
+
+function drawNebulaDrift(){
+  // Partial overdraw: draw BG then nebulae then stars (cheap enough, bg is offscreen sized small)
+  bg.fillStyle='#00010d'; bg.fillRect(0,0,bgC.width,bgC.height);
+  const offs=[
+    {x:.22+nebDrift.x/innerWidth*.04, y:.35, r:420, c:'rgba(30,0,80,'},
+    {x:.68-nebDrift.x/innerWidth*.03, y:.6,  r:360, c:'rgba(0,30,70,'},
+    {x:.5,  y:.2+nebDrift.y/innerHeight*.03,  r:300, c:'rgba(20,0,50,'},
+    {x:.8,  y:.8-nebDrift.y/innerHeight*.02, r:250, c:'rgba(0,20,60,'},
+    {x:.1,  y:.75, r:200, c:'rgba(40,10,60,'},
+  ];
+  offs.forEach(n=>{
+    const grd=bg.createRadialGradient(
+      n.x*bgC.width,n.y*bgC.height,0,
+      n.x*bgC.width,n.y*bgC.height,n.r
+    );
+    grd.addColorStop(0,n.c+'.18)'); grd.addColorStop(1,'rgba(0,0,0,0)');
+    bg.fillStyle=grd; bg.fillRect(0,0,bgC.width,bgC.height);
+  });
+  STARS.forEach(s=>{
+    bg.beginPath(); bg.arc(s.x,s.y,s.r,0,Math.PI*2);
+    bg.fillStyle=`rgba(180,200,255,${s.a})`; bg.fill();
+    if(s.layer===2){
+      bg.strokeStyle=`rgba(200,220,255,${s.a*.35})`; bg.lineWidth=.5;
+      bg.beginPath();
+      bg.moveTo(s.x-s.r*3,s.y); bg.lineTo(s.x+s.r*3,s.y);
+      bg.moveTo(s.x,s.y-s.r*3); bg.lineTo(s.x,s.y+s.r*3);
+      bg.stroke();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PLANET PULSE GSAP TIMELINE  (continuous glow animations via CSS-like GSAP)
+// ═══════════════════════════════════════════════════════════════
+// These drive the canvas shadow glow for selected planet
+const pulseData={glow:8};
+gsap.to(pulseData,{glow:22,duration:1.2,repeat:-1,yoyo:true,ease:'sine.inOut'});
+
+// ═══════════════════════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════════════════════
+let lastT=0;
+function loop(ts){
+  const dt=Math.min(ts-lastT,60); lastT=ts; G.tick++;
+
+  runProduction(ts);
+  updateFleets(dt);
+  updateMissiles2(dt);
+  updateStations(dt);
+  processBuildQueues(dt);
+
+  // Miner arrive logic
+  G.fleets.filter(f=>f._isMiner&&!f.traveling).forEach(fl=>{
+    const ast=fl.targetObj;
+    if(ast&&ast.type==='asteroid'){
+      const m=Math.min(ast.metal,200), c=Math.min(ast.crystal,100);
+      ast.metal-=m; ast.crystal-=c; G.metal+=m; G.crystal+=c;
+      ast.isMining=false;
+      spawnFloat(ast.x,ast.y-ast.radius,`+${Math.floor(m)}M`,'#88ccff');
+      // Send back home
+      const home=fl._miningHome;
+      fl.traveling=true; fl.startX=ast.x; fl.startY=ast.y;
+      fl.targetX=home.x; fl.targetY=home.y; fl.targetObj=home;
+      fl._isMiner=false;
+    }
+  });
+
+  aiCooldown-=dt;
+  if(aiCooldown<=0){ runAI(); aiCooldown=AI_INTERVAL; }
+
+  renderGame(ts);
+  updateFX(dt);
+  updateHUD();
+  renderInfo();
+  checkWin();
+
+  if(!gameOver) requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+function init(){
+  resize();
+  generateStars(400);
+  drawStaticBG();
+  genPlanets();
+  genAsteroids();
+  spawnStartFleets();
+
+  // GSAP intro: panels fly in
+  gsap.fromTo('#stats',{opacity:0,x:-30},{opacity:1,x:0,duration:.6,delay:.2,ease:'power3.out'});
+  gsap.fromTo('#resbar',{opacity:0,y:-20},{opacity:1,y:0,duration:.6,delay:.35,ease:'power3.out'});
+  gsap.fromTo('#actions',{opacity:0,x:30},{opacity:1,x:0,duration:.6,delay:.2,ease:'power3.out'});
+  gsap.fromTo('#spd',{opacity:0,x:-20},{opacity:1,x:0,duration:.5,delay:.5,ease:'power2.out'});
+  gsap.fromTo('#botbar',{opacity:0,y:20},{opacity:1,y:0,duration:.5,delay:.55,ease:'power2.out'});
+
+  notify('Commander, your galaxy awaits.','#00ffaa');
+  setTimeout(()=>notify('Click planets to build and manage fleets','#00d4ff'),2200);
+  setTimeout(()=>notify('Build Generators to power your mines!','#ffdd44'),4000);
+
+  requestAnimationFrame(loop);
+}
+
+init();
+</script>
+</body>
+</html>

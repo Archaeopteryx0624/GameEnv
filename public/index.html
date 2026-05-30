@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GameEnv — Launcher</title>
+<link rel="stylesheet" href="/libs/css/gameenv-base.css">
+<link rel="stylesheet" href="/libs/css/fa.min.css">
+<script src="/libs/js/gsap.min.js"></script>
+<style>
+:root {
+  --accent:#00d4ff; --player:#00ffaa; --dim:#3a5070;
+  --panel:rgba(0,8,32,.88); --border:rgba(0,180,255,.18);
+}
+body {
+  font-family:'Exo 2','Share Tech Mono',monospace;
+  background:#00010d; color:#b8d4ff;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  min-height:100vh; overflow:auto;
+}
+.title {
+  font-family:'Orbitron',monospace;
+  font-size:clamp(22px,5vw,48px);
+  font-weight:900; letter-spacing:8px;
+  color:var(--accent);
+  text-shadow:0 0 30px var(--accent);
+  margin-bottom:6px;
+}
+.sub {
+  font-family:'Share Tech Mono',monospace;
+  font-size:12px; letter-spacing:4px; color:var(--dim);
+  margin-bottom:48px;
+}
+#game-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:18px; width:90vw; max-width:900px;
+}
+.card {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:10px; padding:24px 20px;
+  cursor:pointer; transition:all .2s;
+  text-decoration:none; color:inherit;
+  display:block; opacity:0;
+}
+.card:hover {
+  border-color:var(--accent);
+  background:rgba(0,30,60,.9);
+  transform:translateY(-3px);
+  box-shadow:0 8px 32px rgba(0,212,255,.12);
+}
+.card-icon { font-size:36px; margin-bottom:12px; }
+.card-title {
+  font-family:'Orbitron',monospace;
+  font-size:13px; letter-spacing:2px;
+  color:#fff; margin-bottom:6px;
+}
+.card-desc { font-size:12px; color:var(--dim); line-height:1.5; }
+.card-tag {
+  display:inline-block; margin-top:10px;
+  font-size:10px; letter-spacing:2px;
+  color:var(--accent);
+  border:1px solid rgba(0,212,255,.25);
+  padding:2px 8px; border-radius:10px;
+}
+.empty { color:var(--dim); font-size:13px; letter-spacing:2px; text-align:center; padding:40px; }
+</style>
+</head>
+<body>
+<div class="title">GAME ENV</div>
+<div class="sub">SELECT A GAME TO LAUNCH</div>
+<div id="game-grid"><div class="empty">Loading games…</div></div>
+
+<script>
+fetch('/api/games')
+  .then(r=>r.json())
+  .then(games=>{
+    const grid=document.getElementById('game-grid');
+    if(!games.length){
+      grid.innerHTML='<div class="empty">No games found in /games/</div>';
+      return;
+    }
+    grid.innerHTML=games.map(g=>`
+      <a class="card" href="${g.url}">
+        <div class="card-icon">${g.icon||'🎮'}</div>
+        <div class="card-title">${(g.title||g.name).toUpperCase()}</div>
+        <div class="card-desc">${g.description||'No description.'}</div>
+        <span class="card-tag">PLAY →</span>
+      </a>`).join('');
+    // Staggered GSAP reveal
+    gsap.to('.card',{opacity:1,y:0,duration:.45,stagger:.08,ease:'power2.out',
+      from:{opacity:0,y:20}});
+  })
+  .catch(()=>{
+    document.getElementById('game-grid').innerHTML=
+      '<div class="empty">Could not load games list.</div>';
+  });
+</script>
+</body>
+</html>

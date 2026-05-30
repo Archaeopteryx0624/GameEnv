@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>STELLAR CONQUEST</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="/libs/js/pixi.min.js"></script>
+</head>
+<body>
+
+  <!-- ══════════════════════════════
+       SPACE VIEW (galaxy + system)
+  ══════════════════════════════ -->
+  <div id="viewport">
+    <div id="canvas-mount"></div>
+
+    <!-- Minimal floating HUD -->
+    <div id="top-hud">
+      <div id="res-strip">
+        <span class="rchip"><span class="ri">⬡</span><span id="r-metal">4.2k</span></span>
+        <span class="rchip"><span class="ri">◈</span><span id="r-crystal">1.8k</span></span>
+        <span class="rchip"><span class="ri">⬭</span><span id="r-fuel">920</span></span>
+        <span class="rchip"><span class="ri">❋</span><span id="r-ammonia">330</span></span>
+        <span class="rchip income"><span class="ri">+</span><span id="r-income">—</span></span>
+        <span class="rchip missiles"><span class="ri">💥</span><span id="r-missiles">0</span></span>
+      </div>
+      <div id="hud-right">
+        <span id="year-badge">2247</span>
+        <button class="hud-btn" onclick="UI.openHelp()">?</button>
+      </div>
+    </div>
+
+    <!-- Breadcrumb -->
+    <nav id="breadcrumb"></nav>
+
+    <!-- Mode banner -->
+    <div id="mode-banner"></div>
+
+    <!-- Ship selector (sendfleet mode) -->
+    <div id="ship-selector"></div>
+
+    <!-- View label -->
+    <div id="view-label">GALAXY MAP</div>
+
+    <!-- Legend -->
+    <div id="legend">
+      <div class="leg-row"><span class="leg-dot player"></span>Yours</div>
+      <div class="leg-row"><span class="leg-dot enemy"></span>Enemy</div>
+      <div class="leg-row"><span class="leg-dot neutral"></span>Neutral</div>
+      <div class="leg-row"><span class="leg-dot unknown"></span>Unknown</div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast"></div>
+
+    <!-- Mode cancel button -->
+    <button id="mode-cancel" class="hidden" onclick="Modes.set('normal')">✕ CANCEL</button>
+
+    <!-- Abort buttons for traveling fleets rendered by Pixi -->
+  </div>
+
+  <!-- ══════════════════════════════
+       SURFACE OVERLAY
+  ══════════════════════════════ -->
+  <div id="surface-overlay" class="hidden">
+    <div id="surface-header">
+      <button class="surface-back" id="surface-back-btn">◄</button>
+      <div id="surface-title">PLANET</div>
+      <div id="surface-subtitle"></div>
+      <div style="flex:1"></div>
+      <!-- Minimal surface HUD -->
+      <div id="surface-res">
+        <span class="rchip sm"><span class="ri">⬡</span><span id="sr-metal">—</span></span>
+        <span class="rchip sm"><span class="ri">⬭</span><span id="sr-fuel">—</span></span>
+        <span class="rchip sm missiles"><span class="ri">💥</span><span id="sr-missiles">0</span></span>
+      </div>
+      <button class="hud-btn" onclick="UI.openHelp()">?</button>
+    </div>
+    <div id="surface-body">
+      <div id="surface-canvas-wrap">
+        <canvas id="surface-canvas"></canvas>
+        <div id="surface-ship" class="hidden">🚀</div>
+        <div id="surface-hint">Tap HQ to build · Tap Shipyard for ships · Tap ships to send</div>
+      </div>
+    </div>
+
+    <!-- D-Pad -->
+    <div id="dpad" class="hidden">
+      <div class="dpad-row"><button class="dpad-btn" id="dp-up">▲</button></div>
+      <div class="dpad-row">
+        <button class="dpad-btn" id="dp-left">◄</button>
+        <div class="dpad-center"></div>
+        <button class="dpad-btn" id="dp-right">►</button>
+      </div>
+      <div class="dpad-row"><button class="dpad-btn" id="dp-down">▼</button></div>
+    </div>
+
+    <!-- Context menu (shown on structure/ship tap) -->
+    <div id="surface-ctx-menu" class="hidden"></div>
+  </div>
+
+  <!-- ══════════════════════════════
+       MODALS
+  ══════════════════════════════ -->
+
+  <!-- Help -->
+  <div id="help-modal" class="hidden">
+    <div class="modal-box wide">
+      <div class="modal-title">? HELP</div>
+      <div class="help-grid">
+        <div class="help-col">
+          <div class="help-section">NAVIGATION</div>
+          <div class="help-row"><span class="help-key">Tap star</span><span>Select system</span></div>
+          <div class="help-row"><span class="help-key">Double-tap star</span><span>Enter system</span></div>
+          <div class="help-row"><span class="help-key">Tap planet</span><span>Select planet</span></div>
+          <div class="help-row"><span class="help-key">Double-tap planet</span><span>Land on surface</span></div>
+          <div class="help-row"><span class="help-key">◄ Back / ESC</span><span>Go back</span></div>
+          <div class="help-section">SURFACE</div>
+          <div class="help-row"><span class="help-key">Tap HQ</span><span>Build structures</span></div>
+          <div class="help-row"><span class="help-key">Tap Shipyard</span><span>Build ships / missiles</span></div>
+          <div class="help-row"><span class="help-key">Tap Silo</span><span>Launch missiles</span></div>
+          <div class="help-row"><span class="help-key">Tap ship</span><span>Select ship</span></div>
+          <div class="help-row"><span class="help-key">Tap selected ships</span><span>Send fleet menu</span></div>
+          <div class="help-row"><span class="help-key">WASD / D-Pad</span><span>Move around</span></div>
+        </div>
+        <div class="help-col">
+          <div class="help-section">SHIPS</div>
+          <div class="help-row"><span class="help-key">Fighter</span><span>Fast, single gun</span></div>
+          <div class="help-row"><span class="help-key">Destroyer</span><span>Twin guns, escort</span></div>
+          <div class="help-row"><span class="help-key">Battle Cruiser</span><span>Siege cannon (BC/DN destroy watchdogs)</span></div>
+          <div class="help-row"><span class="help-key">Dreadnought</span><span>Positron beam, massive</span></div>
+          <div class="help-row"><span class="help-key">Watchdog</span><span>Orbital station, auto-fires</span></div>
+          <div class="help-row"><span class="help-key">Transporter</span><span>Mineral hauler</span></div>
+          <div class="help-row"><span class="help-key">Probe</span><span>Send to unexplored system → auto-explores on arrival</span></div>
+          <div class="help-section">COMBAT</div>
+          <div class="help-row"><span class="help-key">Orbit first</span><span>Fight orbital defenders</span></div>
+          <div class="help-row"><span class="help-key">Then watchdog</span><span>Need BC or DN</span></div>
+          <div class="help-row"><span class="help-key">Then ground</span><span>Docked ships + structures</span></div>
+          <div class="help-row"><span class="help-key">Lose all ships</span><span>Planet captured</span></div>
+          <div class="help-section">MISSILES</div>
+          <div class="help-row"><span class="help-key">Build in Shipyard</span><span>3 missiles per build (50 crystal)</span></div>
+          <div class="help-row"><span class="help-key">Tap Silo</span><span>Choose: planet / ship / watchdog / auto-defend</span></div>
+          <div class="help-row"><span class="help-key">Auto-defend</span><span>Fires automatically at incoming enemy fleets</span></div>
+          <div class="help-row"><span class="help-key">Restock</span><span>Auto: 1/60s per silo. Manual: build in Shipyard</span></div>
+          <div class="help-section">RESOURCES</div>
+          <div class="help-row"><span class="help-key">⬡ Metal</span><span>Terrestrial / Volcanic</span></div>
+          <div class="help-row"><span class="help-key">⬭ H₂ Fuel</span><span>Gas Giants</span></div>
+          <div class="help-row"><span class="help-key">◈ Crystal</span><span>Ice Giants</span></div>
+          <div class="help-row"><span class="help-key">❋ Ammonia</span><span>Ice / Terrestrial</span></div>
+        </div>
+      </div>
+      <button class="modal-close-btn" onclick="UI.closeHelp()">CLOSE</button>
+    </div>
+  </div>
+
+  <!-- Combat log -->
+  <div id="combat-log" class="hidden">
+    <div class="modal-box">
+      <div class="modal-title" id="cl-title">COMBAT REPORT</div>
+      <div id="cl-body"></div>
+      <button class="modal-close-btn" onclick="UI.closeCombatLog()">ACKNOWLEDGE</button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/clock.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/ships.js"></script>
+  <script src="js/missiles.js"></script>
+  <script src="js/modes.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/galaxy.js"></script>
+  <script src="js/system.js"></script>
+  <script src="js/planet.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

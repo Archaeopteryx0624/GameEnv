@@ -1,0 +1,980 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Isometric City Builder</title>
+  <link rel="stylesheet" href="/libs/css/gameenv-base.css">
+  <link rel="stylesheet" href="/libs/css/fa.min.css">
+  <script src="/libs/js/gsap.min.js"></script>
+  <style>
+    body {
+      overflow: hidden;
+      background: #0a0a0a;
+      color: #fff;
+      font-family: 'Share Tech Mono', 'Courier New', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh; width: 100vw;
+    }
+    #game-title {
+      font-size: clamp(.7rem,2vw,1rem);
+      font-weight: 300; letter-spacing: 4px;
+      text-transform: uppercase; color: #999;
+      padding: 5px 0 3px; flex-shrink: 0;
+    }
+    #canvas-wrap {
+      position: relative; width: 100%; height: 90vh;
+      flex-shrink: 0; background: #0d0d0d; overflow: hidden;
+    }
+    #gameCanvas { display:block; cursor:crosshair; width:100%; height:100%; }
+
+    /* ── PORTRAIT CONTROLS ── */
+    #controls-portrait {
+      width:100%; background:#141414; border-top:1px solid #1e1e1e;
+      padding:6px 10px; overflow-x:auto; overflow-y:hidden;
+      display:flex; gap:10px; align-items:flex-start; flex-shrink:0;
+    }
+    .port-section { display:flex; flex-direction:column; gap:4px; min-width:max-content; }
+    .port-label   { font-size:.58rem; color:#555; text-transform:uppercase; letter-spacing:1px; }
+    .port-row     { display:flex; gap:3px; flex-wrap:nowrap; }
+
+    /* ── HUD PANELS ── */
+    .hud-panel {
+      position:absolute; pointer-events:all;
+      background:var(--hud-bg,rgba(8,12,26,.86));
+      border:1px solid var(--hud-border,rgba(80,180,255,.2));
+      backdrop-filter:blur(var(--hud-blur,14px));
+      -webkit-backdrop-filter:blur(var(--hud-blur,14px));
+      border-radius:8px; padding:10px 12px; font-size:11px;
+      display:none; z-index:20; user-select:none;
+    }
+    .hud-panel h4 {
+      font-size:9px; letter-spacing:3px;
+      color:rgba(80,180,255,.75);
+      text-transform:uppercase; margin-bottom:8px;
+    }
+
+    /* ── BUTTONS ── */
+    .el-btn {
+      display:inline-flex; align-items:center; gap:5px;
+      padding:5px 8px; border:1.5px solid transparent;
+      border-radius:5px; cursor:pointer; font-size:11px;
+      font-weight:600; background:rgba(255,255,255,.06);
+      color:#ccc; transition:background .14s,transform .1s;
+      white-space:nowrap; font-family:inherit;
+    }
+    .el-btn::before { content:''; width:7px; height:7px; border-radius:2px; flex-shrink:0; }
+    .el-btn:hover  { background:rgba(255,255,255,.14); transform:scale(1.05); }
+    .el-btn.active { border-color:currentColor; background:rgba(255,255,255,.11); }
+    .el-btn.t-land     {color:#4caf50;} .el-btn.t-land::before     {background:#4caf50;}
+    .el-btn.t-water    {color:#2196f3;} .el-btn.t-water::before    {background:#2196f3;}
+    .el-btn.t-mountain {color:#9e9e9e;} .el-btn.t-mountain::before {background:#9e9e9e;}
+    .el-btn.t-road     {color:#90a4ae;} .el-btn.t-road::before     {background:#90a4ae;}
+    .el-btn.t-human    {color:#ffeb3b;} .el-btn.t-human::before    {background:#ffeb3b;}
+    .el-btn.t-house    {color:#ff9800;} .el-btn.t-house::before    {background:#ff9800;}
+    .el-btn.t-car      {color:#f44336;} .el-btn.t-car::before      {background:#f44336;}
+    .el-btn.t-plane    {color:#e91e63;} .el-btn.t-plane::before    {background:#e91e63;}
+    .el-btn.t-tree     {color:#66bb6a;} .el-btn.t-tree::before     {background:#66bb6a;}
+
+    .sz-btn {
+      width:28px; height:26px; border:1px solid #444;
+      background:rgba(255,255,255,.06); color:#aaa;
+      border-radius:4px; cursor:pointer; font-size:11px;
+      font-family:inherit; transition:all .14s;
+    }
+    .sz-btn.active,.sz-btn:hover { background:#fff; color:#000; }
+
+    .act-btn {
+      width:100%; padding:6px 10px; border:1px solid #444;
+      background:transparent; color:#bbb; border-radius:5px;
+      cursor:pointer; font-size:11px; font-family:inherit;
+      transition:all .18s; margin-top:4px; text-align:left;
+    }
+    .act-btn:hover           { background:rgba(255,68,68,.18); border-color:#f44336; color:#fff; }
+    .act-btn.act-green       { border-color:#4caf5055; }
+    .act-btn.act-green:hover { background:rgba(76,175,80,.18); border-color:#4caf50; color:#fff; }
+
+    .tool-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+
+    /* stats */
+    .stat-row { display:flex; justify-content:space-between; gap:10px; font-size:11px; margin-bottom:3px; color:#666; }
+    .stat-row span:last-child { color:#ddd; font-weight:600; }
+
+    /* settings sliders */
+    .srow { display:flex; align-items:center; gap:7px; margin-bottom:6px; }
+    .srow label { font-size:9px; color:#666; letter-spacing:1px; text-transform:uppercase; min-width:56px; flex-shrink:0; }
+    input[type=range] {
+      -webkit-appearance:none; flex:1; height:3px;
+      background:rgba(80,180,255,.22); border-radius:2px; outline:none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance:none; width:12px; height:12px;
+      border-radius:50%; background:#50b4ff; cursor:pointer;
+      box-shadow:0 0 5px #50b4ff88;
+    }
+    .rval { font-size:10px; color:#50b4ff; min-width:32px; text-align:right; font-family:inherit; }
+    .ssep {
+      font-size:9px; letter-spacing:2px; color:rgba(80,180,255,.5);
+      text-transform:uppercase; margin:8px 0 5px;
+      border-top:1px solid rgba(80,180,255,.12); padding-top:7px;
+    }
+    .ppg { background:rgba(0,0,0,.28); border-radius:5px; padding:7px 8px; margin-bottom:6px; }
+    .ppl { font-size:9px; color:#50b4ff; letter-spacing:1px; text-transform:uppercase; margin-bottom:5px; }
+
+    /* settings scroll */
+    #hud-settings { max-height:75vh; overflow-y:auto; min-width:230px; }
+
+    /* ── ZOOM BUTTONS ── */
+    #zoom-btns {
+      position:absolute; right:12px; top:50%; transform:translateY(-50%);
+      display:none; flex-direction:column; gap:5px; z-index:25;
+    }
+    .zoom-btn {
+      width:32px; height:32px; border-radius:50%;
+      background:rgba(8,12,26,.82); border:1px solid rgba(80,180,255,.22);
+      color:#50b4ff; font-size:14px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      transition:background .18s; backdrop-filter:blur(8px);
+    }
+    .zoom-btn:hover { background:rgba(80,180,255,.18); }
+    #zoom-level { font-size:8px; text-align:center; color:#50b4ff; font-family:inherit; letter-spacing:1px; }
+
+    /* ── MINIMAP ── */
+    #minimap-wrap {
+      position:absolute; display:none; z-index:22;
+      border-radius:6px; overflow:hidden;
+      border:1px solid rgba(80,180,255,.22);
+      box-shadow:0 0 14px rgba(0,0,0,.6);
+      cursor:crosshair;
+    }
+    #minimap { display:block; background:#111; }
+    #minimap-vp {
+      position:absolute; top:0; left:0; pointer-events:none;
+      border:1.5px solid rgba(80,180,255,.85); border-radius:1px;
+      background:rgba(80,180,255,.08);
+    }
+    #minimap-label {
+      position:absolute; bottom:2px; left:50%; transform:translateX(-50%);
+      font-size:7px; color:rgba(80,180,255,.45); letter-spacing:1px;
+      pointer-events:none; text-transform:uppercase;
+    }
+
+    /* ── SETTINGS COG ── */
+    #settings-toggle {
+      position:absolute; z-index:30; width:32px; height:32px;
+      border-radius:50%; background:rgba(8,12,26,.82);
+      border:1px solid rgba(80,180,255,.22);
+      color:#50b4ff; font-size:13px; cursor:pointer;
+      display:none; align-items:center; justify-content:center;
+      backdrop-filter:blur(8px); transition:background .18s;
+    }
+    #settings-toggle:hover { background:rgba(80,180,255,.18); }
+
+    #controls-portrait .el-btn { padding:4px 6px; font-size:10px; }
+  </style>
+</head>
+<body>
+
+<div id="game-title">Isometric City Builder</div>
+
+<div id="canvas-wrap">
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Tools TL -->
+  <div class="hud-panel" id="hud-tools" data-panel="tools">
+    <h4><i class="fas fa-paintbrush"></i> &nbsp;Tools</h4>
+    <div class="tool-grid">
+      <button class="el-btn t-land   active" onclick="selectTool('land',this)">Land</button>
+      <button class="el-btn t-water"         onclick="selectTool('water',this)">Water</button>
+      <button class="el-btn t-mountain"      onclick="selectTool('mountain',this)">Mountain</button>
+      <button class="el-btn t-road"          onclick="selectTool('road',this)">Road</button>
+      <button class="el-btn t-human"         onclick="selectTool('human',this)">Human</button>
+      <button class="el-btn t-house"         onclick="selectTool('house',this)">House</button>
+      <button class="el-btn t-car"           onclick="selectTool('car',this)">Car</button>
+      <button class="el-btn t-plane"         onclick="selectTool('plane',this)">Airplane</button>
+      <button class="el-btn t-tree"          onclick="selectTool('tree',this)">Tree</button>
+    </div>
+  </div>
+
+  <!-- Brush BL -->
+  <div class="hud-panel" id="hud-brush" data-panel="brush">
+    <h4><i class="fas fa-circle-dot"></i> &nbsp;Brush</h4>
+    <div style="display:flex;gap:4px;margin-bottom:7px">
+      <button class="sz-btn active" onclick="setBrushSize(1,this)">1</button>
+      <button class="sz-btn"        onclick="setBrushSize(2,this)">2</button>
+      <button class="sz-btn"        onclick="setBrushSize(3,this)">3</button>
+      <button class="sz-btn"        onclick="setBrushSize(5,this)">5</button>
+    </div>
+    <button class="act-btn act-green" onclick="toggleSimulation()"><i class="fas fa-play-pause"></i> Toggle Sim</button>
+    <button class="act-btn"           onclick="clearWorld()"><i class="fas fa-trash"></i> Clear World</button>
+  </div>
+
+  <!-- Stats TR -->
+  <div class="hud-panel" id="hud-stats" data-panel="stats">
+    <h4><i class="fas fa-chart-bar"></i> &nbsp;Stats</h4>
+    <div class="stat-row"><span>Zoom</span>  <span id="sh-zoom">100%</span></div>
+    <div class="stat-row"><span>Humans</span><span id="sh-humans">0</span></div>
+    <div class="stat-row"><span>Houses</span><span id="sh-houses">0</span></div>
+    <div class="stat-row"><span>Cars</span>  <span id="sh-cars">0</span></div>
+    <div class="stat-row"><span>Planes</span><span id="sh-planes">0</span></div>
+    <div class="stat-row"><span>Sim</span>   <span id="sh-sim" style="color:#4caf50">Running</span></div>
+  </div>
+
+  <!-- Settings panel (toggle via cog) -->
+  <div class="hud-panel" id="hud-settings">
+    <h4><i class="fas fa-sliders"></i> &nbsp;Settings</h4>
+
+    <div class="ssep" style="border-top:none;margin-top:0;padding-top:0">Appearance</div>
+    <div class="srow"><label>Opacity</label>
+      <input type="range" id="sl-opacity" min="5" max="100" value="86" oninput="setHudOpacity(this.value)">
+      <span class="rval" id="lbl-opacity">86%</span></div>
+    <div class="srow"><label>Blur</label>
+      <input type="range" id="sl-blur" min="0" max="24" value="14" oninput="setHudBlur(this.value)">
+      <span class="rval" id="lbl-blur">14px</span></div>
+    <div class="srow"><label>Border</label>
+      <input type="range" id="sl-border" min="0" max="100" value="20" oninput="setHudBorder(this.value)">
+      <span class="rval" id="lbl-border">20%</span></div>
+
+    <div class="ssep">Panel Positions</div>
+
+    <div class="ppg">
+      <div class="ppl">Tools Panel</div>
+      <div class="srow"><label>← →</label>
+        <input type="range" id="pos-tools-x" min="-400" max="400" value="0" oninput="shiftPanel('hud-tools','x',+this.value)">
+        <span class="rval" id="lv-tools-x">0</span></div>
+      <div class="srow"><label>↑ ↓</label>
+        <input type="range" id="pos-tools-y" min="-400" max="400" value="0" oninput="shiftPanel('hud-tools','y',+this.value)">
+        <span class="rval" id="lv-tools-y">0</span></div>
+    </div>
+
+    <div class="ppg">
+      <div class="ppl">Brush Panel</div>
+      <div class="srow"><label>← →</label>
+        <input type="range" id="pos-brush-x" min="-400" max="400" value="0" oninput="shiftPanel('hud-brush','x',+this.value)">
+        <span class="rval" id="lv-brush-x">0</span></div>
+      <div class="srow"><label>↑ ↓</label>
+        <input type="range" id="pos-brush-y" min="-400" max="400" value="0" oninput="shiftPanel('hud-brush','y',+this.value)">
+        <span class="rval" id="lv-brush-y">0</span></div>
+    </div>
+
+    <div class="ppg">
+      <div class="ppl">Stats Panel</div>
+      <div class="srow"><label>← →</label>
+        <input type="range" id="pos-stats-x" min="-400" max="400" value="0" oninput="shiftPanel('hud-stats','x',+this.value)">
+        <span class="rval" id="lv-stats-x">0</span></div>
+      <div class="srow"><label>↑ ↓</label>
+        <input type="range" id="pos-stats-y" min="-400" max="400" value="0" oninput="shiftPanel('hud-stats','y',+this.value)">
+        <span class="rval" id="lv-stats-y">0</span></div>
+    </div>
+
+    <div class="ppg">
+      <div class="ppl">Minimap</div>
+      <div class="srow"><label>← →</label>
+        <input type="range" id="pos-mini-x" min="-400" max="400" value="0" oninput="shiftPanel('minimap-wrap','x',+this.value)">
+        <span class="rval" id="lv-mini-x">0</span></div>
+      <div class="srow"><label>↑ ↓</label>
+        <input type="range" id="pos-mini-y" min="-400" max="400" value="0" oninput="shiftPanel('minimap-wrap','y',+this.value)">
+        <span class="rval" id="lv-mini-y">0</span></div>
+    </div>
+
+    <div class="ppg">
+      <div class="ppl">Zoom Controls</div>
+      <div class="srow"><label>↑ ↓</label>
+        <input type="range" id="pos-zoom-y" min="-400" max="400" value="0" oninput="shiftZoomBtns(+this.value)">
+        <span class="rval" id="lv-zoom-y">0</span></div>
+    </div>
+  </div>
+
+  <!-- Minimap -->
+  <div id="minimap-wrap">
+    <canvas id="minimap"></canvas>
+    <div id="minimap-vp"></div>
+    <div id="minimap-label">MAP</div>
+  </div>
+
+  <!-- Zoom buttons -->
+  <div id="zoom-btns">
+    <button class="zoom-btn" onclick="zoomStep(+1)" title="Zoom In (+)"><i class="fas fa-plus"></i></button>
+    <div id="zoom-level">100%</div>
+    <button class="zoom-btn" onclick="zoomStep(-1)" title="Zoom Out (-)"><i class="fas fa-minus"></i></button>
+    <button class="zoom-btn" onclick="resetZoom()" title="Reset (0)" style="font-size:10px;letter-spacing:0">1:1</button>
+  </div>
+
+  <!-- Settings cog -->
+  <button id="settings-toggle" onclick="toggleSettings()" title="Settings">
+    <i class="fas fa-gear"></i>
+  </button>
+</div>
+
+<!-- Portrait controls -->
+<div id="controls-portrait">
+  <div class="port-section">
+    <div class="port-label">Terrain</div>
+    <div class="port-row">
+      <button class="el-btn t-land   active" onclick="selectTool('land',this)">Land</button>
+      <button class="el-btn t-water"         onclick="selectTool('water',this)">Water</button>
+      <button class="el-btn t-mountain"      onclick="selectTool('mountain',this)">Mtn</button>
+      <button class="el-btn t-road"          onclick="selectTool('road',this)">Road</button>
+    </div>
+  </div>
+  <div class="port-section">
+    <div class="port-label">Spawn</div>
+    <div class="port-row">
+      <button class="el-btn t-human"  onclick="selectTool('human',this)">Human</button>
+      <button class="el-btn t-house"  onclick="selectTool('house',this)">House</button>
+      <button class="el-btn t-car"    onclick="selectTool('car',this)">Car</button>
+      <button class="el-btn t-plane"  onclick="selectTool('plane',this)">Plane</button>
+      <button class="el-btn t-tree"   onclick="selectTool('tree',this)">Tree</button>
+    </div>
+  </div>
+  <div class="port-section">
+    <div class="port-label">Brush</div>
+    <div class="port-row">
+      <button class="sz-btn active" onclick="setBrushSize(1,this)">1</button>
+      <button class="sz-btn"        onclick="setBrushSize(2,this)">2</button>
+      <button class="sz-btn"        onclick="setBrushSize(3,this)">3</button>
+      <button class="sz-btn"        onclick="setBrushSize(5,this)">5</button>
+    </div>
+  </div>
+  <div class="port-section">
+    <div class="port-label">Zoom</div>
+    <div class="port-row">
+      <button class="el-btn" onclick="zoomStep(+1)">＋</button>
+      <button class="el-btn" onclick="zoomStep(-1)">－</button>
+      <button class="el-btn" onclick="resetZoom()">1:1</button>
+    </div>
+  </div>
+  <div class="port-section">
+    <div class="port-label">Actions</div>
+    <div class="port-row">
+      <button class="el-btn act-green" style="border-color:#4caf5055" onclick="toggleSimulation()">▶ Sim</button>
+      <button class="el-btn"           onclick="clearWorld()">✕ Clear</button>
+    </div>
+  </div>
+  <div class="port-section" style="margin-left:auto">
+    <div class="port-label">Stats</div>
+    <div id="port-stats" style="font-size:9px;color:#555;line-height:1.8;font-family:monospace">—</div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+//  ISOMETRIC CITY BUILDER  v3
+//  1. Zoom: wheel (cursor-anchored) · pinch (midpoint-anchored) · buttons
+//  2. Minimap: live top-down canvas · viewport rect · click-to-pan
+//  3. HUD positions: per-panel X/Y sliders in settings (+zoom column)
+// ================================================================
+
+const canvas   = document.getElementById('gameCanvas');
+const ctx      = canvas.getContext('2d');
+const mmCanvas = document.getElementById('minimap');
+const mmCtx    = mmCanvas.getContext('2d');
+
+// ── ISO CONFIG ────────────────────────────────────────────────
+const BASE_ISO_W = 64;  // base tile width  (zoom=1)
+const BASE_ISO_H = 32;  // base tile height (zoom=1)
+const GRID = 80;
+
+// ── CAMERA ───────────────────────────────────────────────────
+let zoom    = 1;
+let offsetX = 0, offsetY = 0;
+const ZOOM_MIN  = 0.12;
+const ZOOM_MAX  = 4.5;
+const ZOOM_STEP = 0.2;  // per button press
+
+// Derived tile sizes (always = BASE * zoom)
+function isoW() { return BASE_ISO_W * zoom; }
+function isoH() { return BASE_ISO_H * zoom; }
+
+// ── GAME STATE ────────────────────────────────────────────────
+let currentTool = 'land', brushSize = 1;
+let isDrawing = false, isDragging = false;
+let simulationRunning = true;
+let lastMouseX = 0, lastMouseY = 0;
+let terrain = [], entities = [], buildings = [];
+
+const T_LAND='land', T_WATER='water', T_MTN='mountain', T_ROAD='road';
+const E_HUMAN='human', E_CAR='car', E_PLANE='plane';
+const B_HOUSE='house', B_TREE='tree';
+
+// ── PANEL POSITION STATE ──────────────────────────────────────
+// Base anchors: which corner and base offset in px
+const PANEL_ANCHORS = {
+  'hud-tools':    { corner:'TL', bx:12, by:12 },
+  'hud-brush':    { corner:'BL', bx:12, by:12 },
+  'hud-stats':    { corner:'TR', bx:12, by:12 },
+  'minimap-wrap': { corner:'BR', bx:12, by:52 },
+};
+// User offsets from sliders (default 0)
+const pOff = {
+  'hud-tools':    { x:0, y:0 },
+  'hud-brush':    { x:0, y:0 },
+  'hud-stats':    { x:0, y:0 },
+  'minimap-wrap': { x:0, y:0 },
+};
+// Zoom buttons vertical shift
+let zoomBtnsY = 0;
+
+function applyPanelPos() {
+  Object.entries(PANEL_ANCHORS).forEach(([id, a]) => {
+    const el = document.getElementById(id);
+    if (!el || el.style.display === 'none') return;
+    const ox = pOff[id].x, oy = pOff[id].y;
+    el.style.top=''; el.style.left=''; el.style.right=''; el.style.bottom='';
+    switch (a.corner) {
+      case 'TL': el.style.left =(a.bx+ox)+'px'; el.style.top   =(a.by+oy)+'px'; break;
+      case 'TR': el.style.right=(a.bx-ox)+'px'; el.style.top   =(a.by+oy)+'px'; break;
+      case 'BL': el.style.left =(a.bx+ox)+'px'; el.style.bottom=(a.by-oy)+'px'; break;
+      case 'BR': el.style.right=(a.bx-ox)+'px'; el.style.bottom=(a.by+oy)+'px'; break;
+    }
+  });
+  // Zoom buttons: right-middle, shifted by zoomBtnsY
+  const zb = document.getElementById('zoom-btns');
+  if (zb && zb.style.display !== 'none') {
+    zb.style.top = `calc(50% + ${zoomBtnsY}px)`;
+    zb.style.right = '12px';
+  }
+  // Settings panel always above cog
+  positionSettingsNearCog();
+}
+
+function positionSettingsNearCog() {
+  const tog = document.getElementById('settings-toggle');
+  const set = document.getElementById('hud-settings');
+  if (!tog || !set || set.style.display === 'none') return;
+  const wrap = document.getElementById('canvas-wrap');
+  const wR = wrap.getBoundingClientRect();
+  const tR = tog.getBoundingClientRect();
+  set.style.top=''; set.style.left='';
+  set.style.bottom = (wR.bottom - tR.top + 6) + 'px';
+  set.style.right  = (wR.right  - tR.right)   + 'px';
+}
+
+// slider handlers
+function shiftPanel(id, axis, val) {
+  pOff[id][axis] = val;
+  const key = id === 'minimap-wrap' ? 'mini' : id.replace('hud-','');
+  const lblId = 'lv-' + key + '-' + axis;
+  const lbl = document.getElementById(lblId);
+  if (lbl) lbl.textContent = val > 0 ? '+'+val : String(val);
+  applyPanelPos();
+}
+function shiftZoomBtns(val) {
+  zoomBtnsY = val;
+  document.getElementById('lv-zoom-y').textContent = val > 0 ? '+'+val : String(val);
+  applyPanelPos();
+}
+window.shiftPanel = shiftPanel;
+window.shiftZoomBtns = shiftZoomBtns;
+
+// ── HUD APPEARANCE ────────────────────────────────────────────
+let hudBgA=86, hudBlur=14, hudBorderA=20;
+function applyHudVars() {
+  const w = document.getElementById('canvas-wrap');
+  w.style.setProperty('--hud-bg',     `rgba(8,12,26,${hudBgA/100})`);
+  w.style.setProperty('--hud-border', `rgba(80,180,255,${hudBorderA/100})`);
+  w.style.setProperty('--hud-blur',   hudBlur+'px');
+}
+function setHudOpacity(v){ hudBgA=+v;      document.getElementById('lbl-opacity').textContent=v+'%';   applyHudVars(); }
+function setHudBlur(v)   { hudBlur=+v;     document.getElementById('lbl-blur').textContent=v+'px';     applyHudVars(); }
+function setHudBorder(v) { hudBorderA=+v;  document.getElementById('lbl-border').textContent=v+'%';    applyHudVars(); }
+window.setHudOpacity=setHudOpacity; window.setHudBlur=setHudBlur; window.setHudBorder=setHudBorder;
+
+// ── ORIENTATION ───────────────────────────────────────────────
+let isLandscape = false;
+const LS_PANELS = ['hud-tools','hud-brush','hud-stats'];
+
+function checkOrientation() {
+  const ls = window.innerWidth > window.innerHeight;
+  if (ls === isLandscape) { resizeCanvas(); return; }
+  isLandscape = ls;
+  resizeCanvas();
+
+  const title    = document.getElementById('game-title');
+  const portCtrl = document.getElementById('controls-portrait');
+  const zoomBtns = document.getElementById('zoom-btns');
+  const settTog  = document.getElementById('settings-toggle');
+  const miniWrap = document.getElementById('minimap-wrap');
+
+  if (ls) {
+    title.style.display    = 'none';
+    portCtrl.style.display = 'none';
+
+    LS_PANELS.forEach((id, i) => {
+      const el = document.getElementById(id);
+      el.style.display = 'block';
+      gsap.fromTo(el,
+        { opacity:0, y: id.includes('brush')?14:-14, scale:.92 },
+        { opacity:1, y:0, scale:1, duration:.38, delay:i*.06, ease:'back.out(1.5)' }
+      );
+    });
+
+    zoomBtns.style.display = 'flex';
+    settTog.style.display  = 'flex';
+    miniWrap.style.display = 'block';
+
+    // Position the settings toggle: bottom-right, inside canvas-wrap
+    settTog.style.bottom = '12px';
+    settTog.style.right  = '12px';
+
+    gsap.fromTo([zoomBtns, settTog, miniWrap],
+      { opacity:0 }, { opacity:1, duration:.35, delay:.25 });
+
+    applyHudVars();
+    resizeMinimap();
+    applyPanelPos();
+  } else {
+    title.style.display    = 'block';
+    portCtrl.style.display = 'flex';
+    [...LS_PANELS,'hud-settings'].forEach(id => {
+      const el = document.getElementById(id);
+      gsap.to(el, { opacity:0, duration:.2, onComplete(){ el.style.display='none'; } });
+    });
+    zoomBtns.style.display = 'none';
+    settTog.style.display  = 'none';
+    miniWrap.style.display = 'none';
+    settingsOpen = false;
+  }
+}
+
+// ── SETTINGS TOGGLE ───────────────────────────────────────────
+let settingsOpen = false;
+function toggleSettings() {
+  settingsOpen = !settingsOpen;
+  const el   = document.getElementById('hud-settings');
+  const icon = document.querySelector('#settings-toggle i');
+
+  if (settingsOpen) {
+    el.style.display = 'block';
+    positionSettingsNearCog();
+    gsap.fromTo(el,
+      { opacity:0, y:10, scale:.9 },
+      { opacity:1, y:0, scale:1, duration:.28, ease:'back.out(1.7)' }
+    );
+    gsap.to(icon, { rotation:90, duration:.28, ease:'power2.out' });
+  } else {
+    gsap.to(el, { opacity:0, y:8, scale:.93, duration:.2,
+      onComplete(){ el.style.display='none'; } });
+    gsap.to(icon, { rotation:0, duration:.28, ease:'power2.out' });
+  }
+}
+window.toggleSettings = toggleSettings;
+
+// ── CANVAS RESIZE ─────────────────────────────────────────────
+function resizeCanvas() {
+  const wrap = document.getElementById('canvas-wrap');
+  wrap.style.height = Math.floor(window.innerHeight * .9) + 'px';
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+}
+
+// ── MINIMAP ───────────────────────────────────────────────────
+const MM = 130; // minimap pixel size
+
+function resizeMinimap() {
+  mmCanvas.width  = MM;
+  mmCanvas.height = MM;
+  const mw = document.getElementById('minimap-wrap');
+  mw.style.width  = MM + 'px';
+  mw.style.height = MM + 'px';
+  applyPanelPos();
+}
+
+function renderMinimap() {
+  const cs = MM / GRID;  // cell size on minimap
+
+  // Terrain
+  const tCols = { land:'#264d28', water:'#1155a0', mountain:'#444', road:'#2e2e2e' };
+  for (let x = 0; x < GRID; x++) {
+    for (let y = 0; y < GRID; y++) {
+      mmCtx.fillStyle = tCols[terrain[x][y]] || '#264d28';
+      // Top-down mapping: x→right, y→down
+      mmCtx.fillRect(x*cs, y*cs, cs+.5, cs+.5);
+    }
+  }
+
+  // Buildings
+  buildings.forEach(b => {
+    mmCtx.fillStyle = b.type===B_HOUSE ? '#cc6600' : '#1a5c1a';
+    mmCtx.fillRect(b.x*cs, b.y*cs, cs*1.5, cs*1.5);
+  });
+
+  // Entities
+  entities.forEach(e => {
+    mmCtx.fillStyle = e.type===E_HUMAN?'#ccb800': e.type===E_CAR?'#c0392b':'#8e1442';
+    mmCtx.fillRect(e.x*cs-cs*.5, e.y*cs-cs*.5, cs, cs);
+  });
+
+  // Viewport rect ─ find the 4 screen corners in grid space
+  const corners = [
+    screenToGrid(0,0), screenToGrid(canvas.width,0),
+    screenToGrid(0,canvas.height), screenToGrid(canvas.width,canvas.height),
+  ];
+  const gxs = corners.map(c=>c.x), gys = corners.map(c=>c.y);
+  const minX = Math.max(0, Math.min(...gxs));
+  const maxX = Math.min(GRID, Math.max(...gxs));
+  const minY = Math.max(0, Math.min(...gys));
+  const maxY = Math.min(GRID, Math.max(...gys));
+
+  const vp = document.getElementById('minimap-vp');
+  vp.style.left   = (minX*cs) + 'px';
+  vp.style.top    = (minY*cs) + 'px';
+  vp.style.width  = ((maxX-minX)*cs) + 'px';
+  vp.style.height = ((maxY-minY)*cs) + 'px';
+}
+
+// Click minimap → pan so that grid point is centred
+document.getElementById('minimap').addEventListener('click', e => {
+  const r  = mmCanvas.getBoundingClientRect();
+  const cs = MM / GRID;
+  const gx = (e.clientX - r.left) / cs;
+  const gy = (e.clientY - r.top)  / cs;
+  // Centre grid (gx, gy) in canvas
+  offsetX = canvas.width  / 2 - (gx - gy) * (isoW() / 2);
+  offsetY = canvas.height / 2 - (gx + gy) * (isoH() / 2);
+});
+
+// ── ZOOM ─────────────────────────────────────────────────────
+// Anchor zoom to a screen point (cx, cy) so the world point under
+// that pixel stays fixed after the zoom change.
+function doZoom(newZoom, cx, cy) {
+  newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
+  // World-space position under (cx, cy) before resize:
+  //   wx = (cx - offsetX) / zoom (unitless world coords)
+  const wx = (cx - offsetX) / zoom;
+  const wy = (cy - offsetY) / zoom;
+  zoom = newZoom;
+  // After: keep (wx, wy) under (cx, cy)
+  offsetX = cx - wx * zoom;
+  offsetY = cy - wy * zoom;
+  updateZoomUI();
+}
+
+function zoomStep(dir) {
+  // Anchor to canvas centre when using buttons
+  doZoom(zoom * (1 + dir * ZOOM_STEP), canvas.width/2, canvas.height/2);
+}
+function resetZoom() {
+  zoom = 1;
+  offsetX = canvas.width  / 2;
+  offsetY = canvas.height / 2 - (GRID * BASE_ISO_H / 2);
+  updateZoomUI();
+}
+function updateZoomUI() {
+  const pct = Math.round(zoom * 100) + '%';
+  setText('zoom-level', pct);
+  setText('sh-zoom', pct);
+}
+window.zoomStep = zoomStep;
+window.resetZoom = resetZoom;
+
+// ── ISO COORDINATE HELPERS ────────────────────────────────────
+function gridToScreen(gx, gy) {
+  return {
+    x: (gx - gy) * (isoW() / 2) + offsetX,
+    y: (gx + gy) * (isoH() / 2) + offsetY,
+  };
+}
+function screenToGrid(sx, sy) {
+  const x = sx - offsetX, y = sy - offsetY;
+  const w2 = isoW() / 2, h2 = isoH() / 2;
+  return {
+    x: (x/w2 + y/h2) / 2,
+    y: (y/h2 - x/w2) / 2,
+  };
+}
+
+// ── TERRAIN HELPERS ───────────────────────────────────────────
+function tColor(t) {
+  return { land:'#4caf50', water:'#2196f3', mountain:'#757575', road:'#616161' }[t] || '#4caf50';
+}
+function tHeight(t) { return { mountain:30, water:-10 }[t] || 0; }
+function shadeHex(c, p) {
+  const n=parseInt(c.replace('#',''),16), a=Math.round(2.55*p);
+  const cl=v=>Math.min(255,Math.max(0,v));
+  return `#${(0x1000000+cl((n>>16)+a)*0x10000+cl(((n>>8)&0xff)+a)*0x100+cl((n&0xff)+a)).toString(16).slice(1)}`;
+}
+
+// ── DRAW TILE ─────────────────────────────────────────────────
+function drawTile(gx, gy, color, worldH) {
+  const h   = worldH * zoom;               // scale height with zoom
+  const pos = gridToScreen(gx, gy);
+  const x   = pos.x, y = pos.y - h;
+  const hw  = isoW() / 2, hh = isoH() / 2;
+
+  // Cheap frustum cull
+  const margin = hw + h + 60;
+  if (pos.x+margin < 0 || pos.x-margin > canvas.width)  return;
+  if (pos.y+margin < 0 || pos.y-margin > canvas.height)  return;
+
+  // Top face (diamond)
+  ctx.beginPath();
+  ctx.moveTo(x,    y);
+  ctx.lineTo(x+hw, y+hh);
+  ctx.lineTo(x,    y+hh*2);
+  ctx.lineTo(x-hw, y+hh);
+  ctx.closePath();
+  ctx.fillStyle = color; ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,.13)'; ctx.lineWidth = .5; ctx.stroke();
+
+  if (h > 0) {
+    // Left face
+    ctx.beginPath();
+    ctx.moveTo(x-hw, y+hh);   ctx.lineTo(x, y+hh*2);
+    ctx.lineTo(x, y+hh*2+h);  ctx.lineTo(x-hw, y+hh+h);
+    ctx.closePath(); ctx.fillStyle = shadeHex(color,-22); ctx.fill();
+    // Right face
+    ctx.beginPath();
+    ctx.moveTo(x, y+hh*2);    ctx.lineTo(x+hw, y+hh);
+    ctx.lineTo(x+hw, y+hh+h); ctx.lineTo(x, y+hh*2+h);
+    ctx.closePath(); ctx.fillStyle = shadeHex(color,-42); ctx.fill();
+  }
+}
+
+// ── ENTITY DRAWERS ────────────────────────────────────────────
+function drawHuman(e) {
+  const pos = gridToScreen(e.x, e.y);
+  const th  = tHeight(terrain[~~e.x]?.[~~e.y] || T_LAND) * zoom;
+  const x   = pos.x, y = pos.y - th - 14*zoom;
+  const s   = Math.max(.35, zoom);
+  ctx.strokeStyle='#ffeb3b'; ctx.lineWidth=1.5*s;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,y-7*s); ctx.stroke();
+  ctx.fillStyle='#ffeb3b';
+  ctx.beginPath(); ctx.arc(x,y-9*s,1.8*s,0,Math.PI*2); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(x,y-5*s); ctx.lineTo(x-2.5*s,y-2*s);
+  ctx.moveTo(x,y-5*s); ctx.lineTo(x+2.5*s,y-2*s);
+  ctx.moveTo(x,y);     ctx.lineTo(x-1.5*s,y+2.5*s);
+  ctx.moveTo(x,y);     ctx.lineTo(x+1.5*s,y+2.5*s);
+  ctx.stroke();
+}
+function drawCar(e) {
+  const pos=gridToScreen(e.x,e.y);
+  const th=tHeight(terrain[~~e.x]?.[~~e.y]||T_LAND)*zoom;
+  const x=pos.x,y=pos.y-th-7*zoom,s=Math.max(.35,zoom);
+  ctx.fillStyle='#f44336';
+  ctx.beginPath();ctx.moveTo(x-7*s,y);ctx.lineTo(x,y-3.5*s);ctx.lineTo(x+7*s,y);ctx.lineTo(x,y+3.5*s);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#b71c1c';
+  ctx.beginPath();ctx.moveTo(x-3.5*s,y-1.5*s);ctx.lineTo(x,y-5*s);ctx.lineTo(x+3.5*s,y-1.5*s);ctx.lineTo(x,y+1.5*s);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#333';
+  ctx.beginPath();ctx.arc(x-5*s,y+2*s,1.5*s,0,Math.PI*2);ctx.arc(x+5*s,y+2*s,1.5*s,0,Math.PI*2);ctx.fill();
+}
+function drawPlane(e) {
+  const pos=gridToScreen(e.x,e.y);
+  const x=pos.x,y=pos.y-55*zoom-Math.sin(e.flightOffset)*8,s=Math.max(.35,zoom);
+  ctx.fillStyle='#e91e63';
+  ctx.beginPath();ctx.ellipse(x,y,11*s,3.5*s,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ad1457';
+  ctx.beginPath();ctx.moveTo(x-3*s,y);ctx.lineTo(x,y-7*s);ctx.lineTo(x+3*s,y);ctx.lineTo(x,y+7*s);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(x-9*s,y-2*s);ctx.lineTo(x-13*s,y-5*s);ctx.lineTo(x-11*s,y);ctx.closePath();ctx.fill();
+}
+function drawHouse(b) {
+  const pos=gridToScreen(b.x,b.y);
+  const th=tHeight(terrain[~~b.x]?.[~~b.y]||T_LAND)*zoom;
+  const x=pos.x,y=pos.y-th-18*zoom,s=Math.max(.3,zoom);
+  ctx.fillStyle='#ff9800';
+  ctx.beginPath();ctx.moveTo(x-13*s,y);ctx.lineTo(x,y-9*s);ctx.lineTo(x+13*s,y);ctx.lineTo(x,y+9*s);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#e65100';
+  ctx.beginPath();ctx.moveTo(x-13*s,y);ctx.lineTo(x-13*s,y-18*s);ctx.lineTo(x,y-27*s);ctx.lineTo(x,y-9*s);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(x+13*s,y);ctx.lineTo(x+13*s,y-18*s);ctx.lineTo(x,y-27*s);ctx.lineTo(x,y-9*s);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#bf360c';
+  ctx.beginPath();ctx.moveTo(x-13*s,y-18*s);ctx.lineTo(x,y-32*s);ctx.lineTo(x+13*s,y-18*s);ctx.lineTo(x,y-27*s);ctx.closePath();ctx.fill();
+}
+function drawTree(b) {
+  const pos=gridToScreen(b.x,b.y);
+  const th=tHeight(terrain[~~b.x]?.[~~b.y]||T_LAND)*zoom;
+  const x=pos.x,y=pos.y-th-4*zoom,s=Math.max(.3,zoom);
+  ctx.fillStyle='#5d4037';ctx.fillRect(x-1.5*s,y-13*s,3*s,13*s);
+  ctx.fillStyle='#2e7d32';
+  for(let i=0;i<3;i++){
+    ctx.beginPath();
+    ctx.moveTo(x,y-13*s-i*7*s);ctx.lineTo(x-8*s+i*s,y-4*s-i*7*s);
+    ctx.lineTo(x,y+4*s-i*7*s); ctx.lineTo(x+8*s-i*s,y-4*s-i*7*s);
+    ctx.closePath();ctx.fill();
+  }
+}
+
+// ── UPDATE ────────────────────────────────────────────────────
+function update() {
+  if (!simulationRunning) return;
+  entities.forEach(e => {
+    if (e.type===E_HUMAN) {
+      if (Math.random()<.02) {
+        const dx=~~(Math.random()*3)-1, dy=~~(Math.random()*3)-1;
+        const nx=Math.max(0,Math.min(GRID-1,e.x+dx));
+        const ny=Math.max(0,Math.min(GRID-1,e.y+dy));
+        if(terrain[nx][ny]!==T_WATER&&terrain[nx][ny]!==T_MTN){e.x=nx;e.y=ny;}
+      }
+      if(Math.random()<.001){const hx=~~e.x,hy=~~e.y;if(terrain[hx][hy]===T_LAND&&!buildings.some(b=>b.x===hx&&b.y===hy))buildings.push({type:B_HOUSE,x:hx,y:hy});}
+      if(Math.random()<.0005){const hx=~~e.x,hy=~~e.y;if(terrain[hx][hy]===T_LAND)terrain[hx][hy]=T_ROAD;}
+    }
+    if(e.type===E_CAR){
+      const gx=~~e.x,gy=~~e.y;let moved=false;
+      for(const[dx,dy]of[[0,1],[1,0],[0,-1],[-1,0]]){const nx=gx+dx,ny=gy+dy;if(nx>=0&&nx<GRID&&ny>=0&&ny<GRID&&terrain[nx][ny]===T_ROAD){e.x+=dx*.05;e.y+=dy*.05;moved=true;break;}}
+      if(!moved&&Math.random()<.01)e.life=0;
+    }
+    if(e.type===E_PLANE){e.x+=Math.cos(e.angle)*.1;e.y+=Math.sin(e.angle)*.1;e.flightOffset+=.05;if(e.x<-5)e.x=GRID+5;if(e.x>GRID+5)e.x=-5;if(e.y<-5)e.y=GRID+5;if(e.y>GRID+5)e.y=-5;}
+  });
+  if(Math.random()<.005){const r=[];for(let x=0;x<GRID;x++)for(let y=0;y<GRID;y++)if(terrain[x][y]===T_ROAD)r.push({x,y});if(r.length){const s=r[~~(Math.random()*r.length)];entities.push({type:E_CAR,x:s.x,y:s.y,life:1000});}}
+  entities=entities.filter(e=>e.life!==0);
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+function render() {
+  ctx.fillStyle='#0d0d0d';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(let x=0;x<GRID;x++) for(let y=0;y<GRID;y++) drawTile(x,y,tColor(terrain[x][y]),tHeight(terrain[x][y]));
+  buildings.forEach(b=>{if(b.type===B_HOUSE)drawHouse(b);if(b.type===B_TREE)drawTree(b);});
+  entities.forEach(e=>{if(e.type===E_HUMAN)drawHuman(e);if(e.type===E_CAR)drawCar(e);if(e.type===E_PLANE)drawPlane(e);});
+  renderMinimap();
+  updateStats();
+}
+
+function updateStats() {
+  const h=entities.filter(e=>e.type===E_HUMAN).length;
+  const c=entities.filter(e=>e.type===E_CAR).length;
+  const p=entities.filter(e=>e.type===E_PLANE).length;
+  const ho=buildings.filter(b=>b.type===B_HOUSE).length;
+  const ss=simulationRunning;
+  setText('sh-humans',h);setText('sh-houses',ho);setText('sh-cars',c);setText('sh-planes',p);
+  const se=document.getElementById('sh-sim');if(se){se.textContent=ss?'Running':'Paused';se.style.color=ss?'#4caf50':'#f44336';}
+  const ps=document.getElementById('port-stats');if(ps)ps.textContent=`H:${h} Ho:${ho} C:${c} P:${p} [${ss?'R':'P'}]`;
+}
+function setText(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────
+function loop(){ update(); render(); requestAnimationFrame(loop); }
+
+// ── INPUT: MOUSE ──────────────────────────────────────────────
+canvas.addEventListener('mousedown', e=>{
+  const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+  if(e.button===1||e.shiftKey){isDragging=true;lastMouseX=x;lastMouseY=y;}
+  else{isDrawing=true;drawAt(x,y);}
+});
+canvas.addEventListener('mousemove', e=>{
+  const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+  if(isDragging){offsetX+=x-lastMouseX;offsetY+=y-lastMouseY;lastMouseX=x;lastMouseY=y;}
+  else if(isDrawing)drawAt(x,y);
+});
+canvas.addEventListener('mouseup',    ()=>{isDrawing=false;isDragging=false;});
+canvas.addEventListener('mouseleave', ()=>{isDrawing=false;isDragging=false;});
+
+// Wheel → zoom anchored to cursor position
+canvas.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const r=canvas.getBoundingClientRect();
+  const cx=e.clientX-r.left, cy=e.clientY-r.top;
+  // deltaY < 0 = scroll up = zoom in
+  const factor = e.deltaY < 0 ? 1 + ZOOM_STEP*.7 : 1 - ZOOM_STEP*.7;
+  doZoom(zoom * factor, cx, cy);
+},{passive:false});
+
+// ── INPUT: TOUCH ──────────────────────────────────────────────
+let lastTouchDist=0, touchPanning=false, lastTouchX=0, lastTouchY=0;
+
+canvas.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  if(e.touches.length===2){
+    touchPanning=true;isDrawing=false;
+    const t0=e.touches[0],t1=e.touches[1];
+    lastTouchX=(t0.clientX+t1.clientX)/2;
+    lastTouchY=(t0.clientY+t1.clientY)/2;
+    lastTouchDist=Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY);
+  }else if(e.touches.length===1){
+    const r=canvas.getBoundingClientRect();isDrawing=true;touchPanning=false;
+    drawAt(e.touches[0].clientX-r.left,e.touches[0].clientY-r.top);
+  }
+},{passive:false});
+
+canvas.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if(touchPanning&&e.touches.length===2){
+    const t0=e.touches[0],t1=e.touches[1];
+    const mx=(t0.clientX+t1.clientX)/2,my=(t0.clientY+t1.clientY)/2;
+    const dist=Math.hypot(t0.clientX-t1.clientX,t0.clientY-t1.clientY);
+    // Pan by midpoint delta
+    offsetX+=mx-lastTouchX;offsetY+=my-lastTouchY;
+    // Pinch zoom anchored to midpoint
+    const r=canvas.getBoundingClientRect();
+    doZoom(zoom*(dist/lastTouchDist),mx-r.left,my-r.top);
+    lastTouchX=mx;lastTouchY=my;lastTouchDist=dist;
+  }else if(isDrawing&&e.touches.length===1){
+    const r=canvas.getBoundingClientRect();
+    drawAt(e.touches[0].clientX-r.left,e.touches[0].clientY-r.top);
+  }
+},{passive:false});
+
+canvas.addEventListener('touchend', e=>{
+  if(e.touches.length===0){isDrawing=false;touchPanning=false;}
+  else if(e.touches.length===1){touchPanning=false;}
+},{passive:false});
+
+// ── DRAW AT ───────────────────────────────────────────────────
+function drawAt(sx,sy){
+  const g=screenToGrid(sx,sy);
+  const gx=~~g.x,gy=~~g.y;
+  if(gx<0||gx>=GRID||gy<0||gy>=GRID)return;
+  const half=~~(brushSize/2);
+  for(let dx=-half;dx<=half;dx++)for(let dy=-half;dy<=half;dy++){
+    const nx=gx+dx,ny=gy+dy;
+    if(nx<0||nx>=GRID||ny<0||ny>=GRID)continue;
+    if(['land','water','mountain','road'].includes(currentTool)){terrain[nx][ny]=currentTool;}
+    else if(currentTool==='human'){entities.push({type:E_HUMAN,x:nx+.5,y:ny+.5});}
+    else if(currentTool==='house'){buildings.push({type:B_HOUSE,x:nx,y:ny});}
+    else if(currentTool==='car')  {entities.push({type:E_CAR,x:nx+.5,y:ny+.5,life:1000});}
+    else if(currentTool==='plane'){entities.push({type:E_PLANE,x:nx,y:ny,angle:Math.random()*Math.PI*2,flightOffset:0});}
+    else if(currentTool==='tree') {buildings.push({type:B_TREE,x:nx,y:ny});}
+  }
+}
+
+// ── CONTROLS ──────────────────────────────────────────────────
+function selectTool(tool,btn){
+  currentTool=tool;
+  document.querySelectorAll('.el-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.el-btn').forEach(b=>{if(b.getAttribute('onclick')?.includes(`'${tool}'`))b.classList.add('active');});
+  if(btn)gsap.fromTo(btn,{scale:.85},{scale:1,duration:.22,ease:'back.out(2)'});
+}
+function setBrushSize(size,btn){
+  brushSize=size;
+  document.querySelectorAll('.sz-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.sz-btn').forEach(b=>{if(b.getAttribute('onclick')?.includes(size+','))b.classList.add('active');});
+  if(btn)gsap.fromTo(btn,{scale:.75},{scale:1,duration:.2,ease:'back.out(2)'});
+}
+function toggleSimulation(){
+  simulationRunning=!simulationRunning;
+  const e=document.getElementById('sh-sim');
+  if(e)gsap.fromTo(e,{opacity:.1},{opacity:1,duration:.3});
+}
+function clearWorld(){
+  for(let x=0;x<GRID;x++)for(let y=0;y<GRID;y++)terrain[x][y]=T_LAND;
+  entities=[];buildings=[];
+  gsap.fromTo('#canvas-wrap',{filter:'brightness(2.5)'},{filter:'brightness(1)',duration:.45,ease:'power2.out'});
+}
+window.selectTool=selectTool;window.setBrushSize=setBrushSize;
+window.toggleSimulation=toggleSimulation;window.clearWorld=clearWorld;
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e=>{
+  if(e.key==='+'||e.key==='=') zoomStep(+1);
+  if(e.key==='-')               zoomStep(-1);
+  if(e.key==='0')               resetZoom();
+  if(e.key===' '){e.preventDefault();toggleSimulation();}
+});
+
+// ── INIT ──────────────────────────────────────────────────────
+function init(){
+  resizeCanvas();
+  for(let x=0;x<GRID;x++){terrain[x]=[];for(let y=0;y<GRID;y++)terrain[x][y]=T_LAND;}
+  resetZoom();
+  checkOrientation();
+  window.addEventListener('resize',()=>checkOrientation());
+  window.addEventListener('orientationchange',()=>setTimeout(checkOrientation,130));
+  gsap.fromTo('#canvas-wrap',{opacity:0,scale:.97},{opacity:1,scale:1,duration:.5,ease:'power2.out'});
+  requestAnimationFrame(loop);
+}
+init();
+</script>
+</body>
+</html>

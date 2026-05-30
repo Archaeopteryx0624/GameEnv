@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Sandbox Game - Enhanced Version</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0f0f0f;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h1 {
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+            text-transform: uppercase;
+            color: #e0e0e0;
+        }
+
+        .game-container {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+            align-items: flex-start;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        canvas {
+            background-color: #000000;
+            border: 1px solid #333;
+            cursor: crosshair;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            max-width: 100%;
+            height: auto;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #2a2a2a;
+            min-width: 200px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-label {
+            font-size: 0.85rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .element-btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #2a2a2a;
+            color: #fff;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .element-btn::before {
+            content: '';
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .element-btn:hover {
+            transform: scale(1.05);
+            background: #3a3a3a;
+        }
+
+        .element-btn.active {
+            background: #404040;
+            box-shadow: 0 0 0 2px currentColor;
+        }
+
+        /* Element Colors */
+        .btn-sand { color: #e6c288; }
+        .btn-water { color: #4fc3f7; }
+        .btn-soil { color: #8d6e63; }
+        .btn-fire { color: #ff5722; }
+        .btn-human { color: #ffeb3b; }
+        .btn-wood { color: #5d4037; }
+        .btn-stone { color: #9e9e9e; }
+
+        .action-btn {
+            margin-top: 10px;
+            padding: 12px;
+            border: 1px solid #444;
+            background: transparent;
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .action-btn:hover {
+            background: #ff4444;
+            border-color: #ff4444;
+            transform: scale(1.05);
+        }
+
+        .brush-size {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .size-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid #444;
+            background: #2a2a2a;
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+
+        .size-btn:hover, .size-btn.active {
+            background: #fff;
+            color: #000;
+            transform: scale(1.1);
+        }
+
+        .stats {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 10px;
+            font-family: monospace;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .game-container {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .controls {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                width: 100%;
+                max-width: 600px;
+            }
+
+            .control-group {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .element-btn {
+                padding: 10px 15px;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.2rem;
+            }
+            
+            .element-btn {
+                font-size: 0.8rem;
+                padding: 8px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>2D Sandbox Game - Enhanced Version</h1>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div class="controls">
+            <div class="control-group">
+                <span class="control-label">Elements</span>
+                <button class="element-btn btn-sand active" onclick="selectElement('sand')">Sand</button>
+                <button class="element-btn btn-water" onclick="selectElement('water')">Water</button>
+                <button class="element-btn btn-soil" onclick="selectElement('soil')">Soil</button>
+                <button class="element-btn btn-fire" onclick="selectElement('fire')">Fire</button>
+                <button class="element-btn btn-human" onclick="selectElement('human')">Human</button>
+                <button class="element-btn btn-wood" onclick="selectElement('wood')">Wood</button>
+                <button class="element-btn btn-stone" onclick="selectElement('stone')">Stone</button>
+            </div>
+            
+            <div class="control-group">
+                <span class="control-label">Brush Size</span>
+                <div class="brush-size">
+                    <button class="size-btn active" onclick="setBrushSize(1)">1</button>
+                    <button class="size-btn" onclick="setBrushSize(3)">3</button>
+                    <button class="size-btn" onclick="setBrushSize(5)">5</button>
+                    <button class="size-btn" onclick="setBrushSize(8)">8</button>
+                    <button class="size-btn" onclick="setBrushSize(12)">12</button>
+                </div>
+            </div>
+            
+            <button class="action-btn" onclick="clearCanvas()">Clear Canvas</button>
+            
+            <div class="stats" id="stats">Particles: 0 | FPS: 60</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        // Game configuration
+        const width = 800;
+        const height = 600;
+        const scale = 4; // Simulation resolution (lower = higher res but slower)
+        const simWidth = width / scale;
+        const simHeight = height / scale;
+        
+        // Particle types
+        const EMPTY = 0;
+        const SAND = 1;
+        const WATER = 2;
+        const SOIL = 3;
+        const FIRE = 4;
+        const HUMAN = 5;
+        const WOOD = 6;
+        const STONE = 7;
+        
+        // Element properties
+        const elements = {
+            sand: { type: SAND, color: [230, 194, 136], gravity: true, liquid: false },
+            water: { type: WATER, color: [79, 195, 247], gravity: true, liquid: true },
+            soil: { type: SOIL, color: [141, 110, 99], gravity: true, liquid: false },
+            fire: { type: FIRE, color: [255, 87, 34], gravity: false, liquid: false, life: 30 },
+            human: { type: HUMAN, color: [255, 235, 59], gravity: true, liquid: false },
+            wood: { type: WOOD, color: [93, 64, 55], gravity: false, liquid: false },
+            stone: { type: STONE, color: [158, 158, 158], gravity: false, liquid: false }
+        };
+        
+        // Simulation state
+        let grid = new Int8Array(simWidth * simHeight);
+        let lifeGrid = new Int8Array(simWidth * simHeight); // For fire life, etc.
+        let colorGrid = new Uint8Array(simWidth * simHeight * 3);
+        let currentElement = 'sand';
+        let brushSize = 1;
+        let isDrawing = false;
+        let frameCount = 0;
+        let lastTime = performance.now();
+        let fps = 60;
+        
+        // Image data for rendering
+        const imageData = ctx.createImageData(width, height);
+        const data = imageData.data;
+        
+        // Initialize
+        function init() {
+            // Set canvas size
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Clear grid
+            grid.fill(0);
+            lifeGrid.fill(0);
+            
+            // Start loop
+            requestAnimationFrame(loop);
+        }
+        
+        // Get grid index
+        function getIndex(x, y) {
+            return y * simWidth + x;
+        }
+        
+        // Check if position is valid
+        function isValid(x, y) {
+            return x >= 0 && x < simWidth && y >= 0 && y < simHeight;
+        }
+        
+        // Get particle at position
+        function getParticle(x, y) {
+            if (!isValid(x, y)) return -1;
+            return grid[getIndex(x, y)];
+        }
+        
+        // Set particle
+        function setParticle(x, y, type, life = 0) {
+            if (!isValid(x, y)) return;
+            const idx = getIndex(x, y);
+            grid[idx] = type;
+            lifeGrid[idx] = life;
+            
+            // Set color with slight variation
+            if (type !== EMPTY) {
+                const color = getColorForType(type);
+                const variation = (Math.random() - 0.5) * 20;
+                const baseIdx = idx * 3;
+                colorGrid[baseIdx] = Math.max(0, Math.min(255, color[0] + variation));
+                colorGrid[baseIdx + 1] = Math.max(0, Math.min(255, color[1] + variation));
+                colorGrid[baseIdx + 2] = Math.max(0, Math.min(255, color[2] + variation));
+            }
+        }
+        
+        // Get color for particle type
+        function getColorForType(type) {
+            switch(type) {
+                case SAND: return [230, 194, 136];
+                case WATER: return [79, 195, 247];
+                case SOIL: return [141, 110, 99];
+                case FIRE: return [255, 87, 34];
+                case HUMAN: return [255, 235, 59];
+                case WOOD: return [93, 64, 55];
+                case STONE: return [158, 158, 158];
+                default: return [0, 0, 0];
+            }
+        }
+        
+        // Update simulation
+        function update() {
+            // Create a copy for reading (to prevent update order bias)
+            const oldGrid = new Int8Array(grid);
+            const oldLife = new Int8Array(lifeGrid);
+            
+            // Update from bottom to top for gravity
+            for (let y = simHeight - 1; y >= 0; y--) {
+                // Alternate scan direction for fairness
+                const xStart = (y % 2 === 0) ? 0 : simWidth - 1;
+                const xEnd = (y % 2 === 0) ? simWidth : -1;
+                const xStep = (y % 2 === 0) ? 1 : -1;
+                
+                for (let x = xStart; x !== xEnd; x += xStep) {
+                    const idx = getIndex(x, y);
+                    const type = oldGrid[idx];
+                    
+                    if (type === EMPTY) continue;
+                    
+                    const below = y < simHeight - 1 ? oldGrid[getIndex(x, y + 1)] : -1;
+                    const belowLeft = (y < simHeight - 1 && x > 0) ? oldGrid[getIndex(x - 1, y + 1)] : -1;
+                    const belowRight = (y < simHeight - 1 && x < simWidth - 1) ? oldGrid[getIndex(x + 1, y + 1)] : -1;
+                    const left = x > 0 ? oldGrid[getIndex(x - 1, y)] : -1;
+                    const right = x < simWidth - 1 ? oldGrid[getIndex(x + 1, y)] : -1;
+                    
+                    switch(type) {
+                        case SAND:
+                        case SOIL:
+                            // Fall straight down
+                            if (below === EMPTY || below === WATER) {
+                                if (below === WATER) {
+                                    setParticle(x, y + 1, type);
+                                    setParticle(x, y, WATER);
+                                } else {
+                                    setParticle(x, y + 1, type);
+                                    setParticle(x, y, EMPTY);
+                                }
+                            }
+                            // Fall diagonally
+                            else if ((belowLeft === EMPTY || belowLeft === WATER) && Math.random() > 0.5) {
+                                setParticle(x, y + 1, type);
+                                setParticle(x, y, belowLeft === WATER ? WATER : EMPTY);
+                            }
+                            else if ((belowRight === EMPTY || belowRight === WATER)) {
+                                setParticle(x, y + 1, type);
+                                setParticle(x, y, belowRight === WATER ? WATER : EMPTY);
+                            }
+                            break;
+                            
+                        case WATER:
+                            // Flow down
+                            if (below === EMPTY) {
+                                setParticle(x, y + 1, WATER);
+                                setParticle(x, y, EMPTY);
+                            }
+                            // Flow diagonally down
+                            else if (belowLeft === EMPTY && Math.random() > 0.5) {
+                                setParticle(x - 1, y + 1, WATER);
+                                setParticle(x, y, EMPTY);
+                            }
+                            else if (belowRight === EMPTY) {
+                                setParticle(x + 1, y + 1, WATER);
+                                setParticle(x, y, EMPTY);
+                            }
+                            // Flow horizontally
+                            else if (left === EMPTY && Math.random() > 0.5) {
+                                setParticle(x - 1, y, WATER);
+                                setParticle(x, y, EMPTY);
+                            }
+                            else if (right === EMPTY) {
+                                setParticle(x + 1, y, WATER);
+                                setParticle(x, y, EMPTY);
+                            }
+                            break;
+                            
+                        case FIRE:
+                            // Fire rises and spreads
+                            let life = oldLife[idx];
+                            life--;
+                            
+                            if (life <= 0 || y === 0) {
+                                setParticle(x, y, EMPTY);
+                            } else {
+                                // Try to move up
+                                const above = y > 0 ? oldGrid[getIndex(x, y - 1)] : -1;
+                                const aboveLeft = (y > 0 && x > 0) ? oldGrid[getIndex(x - 1, y - 1)] : -1;
+                                const aboveRight = (y > 0 && x < simWidth - 1) ? oldGrid[getIndex(x + 1, y - 1)] : -1;
+                                
+                                // Burn flammable materials
+                                if (below === WOOD || below === HUMAN) {
+                                    if (Math.random() > 0.9) setParticle(x, y + 1, FIRE, 20 + Math.random() * 20);
+                                }
+                                if (left === WOOD || left === HUMAN) {
+                                    if (Math.random() > 0.95) setParticle(x - 1, y, FIRE, 20 + Math.random() * 20);
+                                }
+                                if (right === WOOD || right === HUMAN) {
+                                    if (Math.random() > 0.95) setParticle(x + 1, y, FIRE, 20 + Math.random() * 20);
+                                }
+                                
+                                // Move fire upward randomly
+                                if (above === EMPTY && Math.random() > 0.3) {
+                                    setParticle(x, y - 1, FIRE, life);
+                                    setParticle(x, y, EMPTY);
+                                } else if (aboveLeft === EMPTY && Math.random() > 0.5) {
+                                    setParticle(x - 1, y - 1, FIRE, life);
+                                    setParticle(x, y, EMPTY);
+                                } else if (aboveRight === EMPTY && Math.random() > 0.5) {
+                                    setParticle(x + 1, y - 1, FIRE, life);
+                                    setParticle(x, y, EMPTY);
+                                } else {
+                                    lifeGrid[idx] = life;
+                                }
+                            }
+                            break;
+                            
+                        case HUMAN:
+                            // Humans walk and fall
+                            if (below === EMPTY) {
+                                setParticle(x, y + 1, HUMAN);
+                                setParticle(x, y, EMPTY);
+                            }
+                            // Walk randomly
+                            else if (Math.random() > 0.95) {
+                                const walkDir = Math.random() > 0.5 ? 1 : -1;
+                                const walkX = x + walkDir;
+                                if (isValid(walkX, y) && oldGrid[getIndex(walkX, y)] === EMPTY) {
+                                    setParticle(walkX, y, HUMAN);
+                                    setParticle(x, y, EMPTY);
+                                }
+                            }
+                            // Jump occasionally
+                            else if (below !== EMPTY && Math.random() > 0.995 && y > 0) {
+                                const above = oldGrid[getIndex(x, y - 1)];
+                                if (above === EMPTY) {
+                                    setParticle(x, y - 1, HUMAN);
+                                    setParticle(x, y, EMPTY);
+                                }
+                            }
+                            break;
+                    }
+                }
+            }
+        }
+        
+        // Render to canvas
+        function render() {
+            // Clear image data
+            data.fill(0);
+            
+            // Scale up simulation grid to canvas
+            for (let y = 0; y < simHeight; y++) {
+                for (let x = 0; x < simWidth; x++) {
+                    const type = grid[getIndex(x, y)];
+                    if (type !== EMPTY) {
+                        const baseIdx = getIndex(x, y) * 3;
+                        const r = colorGrid[baseIdx];
+                        const g = colorGrid[baseIdx + 1];
+                        const b = colorGrid[baseIdx + 2];
+                        
+                        // Fill scaled pixels
+                        for (let dy = 0; dy < scale; dy++) {
+                            for (let dx = 0; dx < scale; dx++) {
+                                const pixelY = y * scale + dy;
+                                const pixelX = x * scale + dx;
+                                const pixelIdx = (pixelY * width + pixelX) * 4;
+                                
+                                data[pixelIdx] = r;
+                                data[pixelIdx + 1] = g;
+                                data[pixelIdx + 2] = b;
+                                data[pixelIdx + 3] = 255;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+        }
+        
+        // Main loop
+        function loop() {
+            update();
+            render();
+            
+            // FPS counter
+            frameCount++;
+            const currentTime = performance.now();
+            if (currentTime - lastTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastTime = currentTime;
+                updateStats();
+            }
+            
+            requestAnimationFrame(loop);
+        }
+        
+        // Update statistics display
+        function updateStats() {
+            let particleCount = 0;
+            for (let i = 0; i < grid.length; i++) {
+                if (grid[i] !== EMPTY) particleCount++;
+            }
+            document.getElementById('stats').textContent = `Particles: ${particleCount} | FPS: ${fps}`;
+        }
+        
+        // Mouse handling
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: Math.floor(((e.clientX - rect.left) * scaleX) / scale),
+                y: Math.floor(((e.clientY - rect.top) * scaleY) / scale)
+            };
+        }
+        
+        function drawAt(x, y) {
+            const elem = elements[currentElement];
+            const halfBrush = Math.floor(brushSize / 2);
+            
+            for (let dy = -halfBrush; dy <= halfBrush; dy++) {
+                for (let dx = -halfBrush; dx <= halfBrush; dx++) {
+                    if (dx * dx + dy * dy <= halfBrush * halfBrush) {
+                        const px = x + dx;
+                        const py = y + dy;
+                        if (isValid(px, py) && grid[getIndex(px, py)] === EMPTY) {
+                            if (currentElement === 'fire') {
+                                setParticle(px, py, elem.type, 20 + Math.random() * 20);
+                            } else {
+                                setParticle(px, py, elem.type);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            const pos = getMousePos(e);
+            drawAt(pos.x, pos.y);
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDrawing) {
+                const pos = getMousePos(e);
+                drawAt(pos.x, pos.y);
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            isDrawing = false;
+        });
+        
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            isDrawing = true;
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        });
+        
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            isDrawing = false;
+        });
+        
+        // Control functions
+        function selectElement(element) {
+            currentElement = element;
+            document.querySelectorAll('.element-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.btn-${element}`).classList.add('active');
+        }
+        
+        function setBrushSize(size) {
+            brushSize = size;
+            document.querySelectorAll('.size-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+        
+        function clearCanvas() {
+            grid.fill(0);
+            lifeGrid.fill(0);
+        }
+        
+        // Initialize game
+        init();
+    </script>
+</body>
+</html>
